@@ -1,0 +1,32 @@
+-- schema.sql
+-- Archivo para la creación de las tablas en PostgreSQL (Railway u otro entorno)
+
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255),
+  role VARCHAR(50) DEFAULT 'user',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  last_login TIMESTAMP WITH TIME ZONE,
+  last_activity TIMESTAMP WITH TIME ZONE,
+  is_online BOOLEAN DEFAULT false
+);
+
+CREATE TABLE IF NOT EXISTS login_history (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  login_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  access_method VARCHAR(50) DEFAULT 'local'
+);
+
+CREATE TABLE IF NOT EXISTS active_sessions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  jwt_token TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
