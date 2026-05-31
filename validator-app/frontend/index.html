@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="SQL/NoSQL Syntax Validator" />
+  <title>SQL/NoSQL Syntax Validator</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Monaco Editor CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+
+  <!-- Auth Check -->
+  <script>
+    if (!localStorage.getItem('validator_token')) {
+      window.location.href = '/login.html';
+    }
+  </script>
+
+
+
+  <!-- Estilos propios -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="theme-dark">
+
+  <!-- HEADER / BARRA SUPERIOR -->
+  <header class="app-header" role="banner">
+    <div class="header-left">
+      <div class="logo">
+        <span class="logo-icon" aria-hidden="true">⚡</span>
+        <div class="logo-text">
+          <span class="logo-title">SQL/NoSQL</span>
+          <span class="logo-subtitle">Syntax Validator</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <!-- Tabs removidos para layout horizontal -->
+    </div>
+
+    <div class="header-right">
+      <button class="active-users-indicator" id="btn-show-users" aria-live="polite" title="Ver usuarios conectados">
+        <span class="active-users-icon" aria-hidden="true">👥</span>
+        <span class="active-users-count" id="active-users-count">0</span>
+        <span class="active-users-text">online</span>
+      </button>
+      <button class="btn-icon" id="btn-theme-toggle" title="Cambiar tema" aria-label="Cambiar entre tema claro y oscuro">
+        <span class="theme-icon">🌙</span>
+      </button>
+      <button class="btn-icon" id="btn-logout" title="Cerrar sesión" aria-label="Cerrar sesión">
+        <span class="logout-icon">🚪</span>
+      </button>
+      <div class="status-indicator" id="status-indicator" aria-live="polite">
+        <span class="status-dot idle" aria-hidden="true"></span>
+        <span class="status-text" id="header-username">Usuario</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- LAYOUT PRINCIPAL (3 PANELES) -->
+  <main class="app-layout" role="main">
+
+    <!-- SIDEBAR IZQUIERDO: Controles -->
+    <aside class="sidebar" id="sidebar" aria-label="Panel de controles">
+
+<!-- Selector de lenguaje -->
+       <section class="sidebar-section" aria-labelledby="lang-heading">
+         <h2 class="section-title" id="lang-heading">
+           <span class="section-icon" aria-hidden="true">🗃️</span>
+           Lenguaje
+         </h2>
+         <div class="language-selector">
+           <label for="language-select" class="sr-only">Seleccionar tipo de lenguaje</label>
+           <select id="language-select" class="select-input" aria-describedby="lang-desc">
+             <option value="sql">SQL</option>
+             <option value="nosql">MongoDB (NoSQL)</option>
+           </select>
+           <p class="select-desc" id="lang-desc">Elige el tipo de consulta a validar</p>
+         </div>
+         <div class="lang-badge" id="lang-badge" aria-live="polite">
+           <span class="badge sql-badge" id="badge-label">SQL</span>
+           <span class="badge-desc" id="badge-desc">Structured Query Language</span>
+         </div>
+       </section>
+
+      <!-- Acciones principales -->
+      <section class="sidebar-section" aria-labelledby="actions-heading">
+        <h2 class="section-title" id="actions-heading">
+          <span class="section-icon" aria-hidden="true">⚡</span>
+          Acciones
+        </h2>
+        <div class="actions-group">
+          <button class="btn btn-primary" id="btn-validate" aria-label="Validar consulta">
+            <span class="btn-icon" aria-hidden="true">✅</span>
+            Validar
+            <span class="btn-shortcut">Ctrl+Enter</span>
+          </button>
+          <button class="btn btn-secondary" id="btn-format" aria-label="Formatear código">
+            <span class="btn-icon" aria-hidden="true">✨</span>
+            Formatear
+          </button>
+          <button class="btn btn-secondary" id="btn-clear" aria-label="Limpiar editor">
+            <span class="btn-icon" aria-hidden="true">🗑️</span>
+            Limpiar
+          </button>
+          <button class="btn btn-accent" id="btn-example" aria-label="Cargar ejemplo">
+            <span class="btn-icon" aria-hidden="true">📖</span>
+            Ejemplo
+          </button>
+          <button class="btn btn-secondary" id="btn-copy" aria-label="Copiar consulta">
+            <span class="btn-icon" aria-hidden="true">📋</span>
+            Copiar
+          </button>
+          <button class="btn btn-secondary" id="btn-upload" aria-label="Subir archivo">
+            <span class="btn-icon" aria-hidden="true">📁</span>
+            Subir Archivo
+          </button>
+          <input type="file" id="file-input" accept=".sql,.json,.nosql" hidden />
+        </div>
+      </section>
+
+<!-- Opciones -->
+       <section class="sidebar-section" aria-labelledby="options-heading">
+         <h2 class="section-title" id="options-heading">
+           <span class="section-icon" aria-hidden="true">⚙️</span>
+           Opciones
+         </h2>
+         <div class="options-group">
+           <label class="toggle-label" for="opt-minimap">
+             <span class="toggle-text">Minimapa</span>
+             <div class="toggle-switch">
+               <input type="checkbox" id="opt-minimap" role="switch" aria-checked="true" checked />
+               <span class="toggle-slider"></span>
+             </div>
+           </label>
+         </div>
+       </section>
+
+      <!-- Estadísticas -->
+      <section class="sidebar-section stats-section" aria-labelledby="stats-heading">
+        <h2 class="section-title" id="stats-heading">
+          <span class="section-icon" aria-hidden="true">📊</span>
+          Estadísticas
+        </h2>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-item">
+            <span class="stat-value" id="stat-validations">0</span>
+            <span class="stat-label">Validaciones</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value success" id="stat-valid">0</span>
+            <span class="stat-label">Válidas</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value error" id="stat-invalid">0</span>
+            <span class="stat-label">Inválidas</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="stat-lines">0</span>
+            <span class="stat-label">Líneas</span>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- PANEL CENTRAL: Editor + Resultados -->
+    <div class="editor-panel" id="editor-panel" role="tabpanel" aria-labelledby="tab-editor">
+
+      <!-- Barra info del editor -->
+      <div class="editor-toolbar" role="toolbar" aria-label="Barra de herramientas del editor">
+        <div class="editor-info">
+          <span class="info-item" id="cursor-position" aria-live="polite">Ln 1, Col 1</span>
+          <span class="separator" aria-hidden="true">|</span>
+          <span class="info-item" id="char-count">0 caracteres</span>
+          <span class="separator" aria-hidden="true">|</span>
+          <span class="info-item" id="editor-lang-indicator">SQL</span>
+        </div>
+        <div class="editor-actions">
+          <button class="btn-tool" id="btn-fullscreen" title="Pantalla completa" aria-label="Pantalla completa">⛶</button>
+        </div>
+      </div>
+
+      <!-- WRAPPER PARA LAYOUT SIDE-BY-SIDE -->
+      <div class="editor-content-wrapper" style="display: flex; flex: 1; overflow: hidden; flex-direction: row;">
+        
+        <!-- Contenedor del Monaco Editor -->
+        <div class="monaco-container" id="monaco-container" role="textbox" aria-label="Editor de código SQL/NoSQL" aria-multiline="true" style="flex: 1;">
+        <div id="monaco-editor"></div>
+      </div>
+
+        <!-- RIGHT SIDEBAR (Resultados + Historial) -->
+        <div class="right-sidebar" style="width: 25%; min-width: 300px; flex: none; display: flex; flex-direction: column; border-left: 1px solid var(--border);">
+          
+          <!-- PANEL DE RESULTADOS -->
+          <div class="results-panel" id="results-panel" aria-label="Panel de resultados" style="flex: 1; overflow-y: auto; border-top: none; border-left: none; display: flex; flex-direction: column;">
+        <div class="results-header">
+          <h3 class="results-title" id="results-title">
+            <span id="results-icon" aria-hidden="true">🔎</span>
+            Resultados
+          </h3>
+          <div class="results-meta" id="results-meta" aria-live="polite"></div>
+          <button class="btn-tool" id="btn-clear-results" title="Limpiar resultados" aria-label="Limpiar resultados">✕</button>
+        </div>
+
+        <!-- Estado vacío -->
+        <div class="results-empty" id="results-empty" role="status">
+          <div class="empty-icon" aria-hidden="true">⌨️</div>
+          <p class="empty-text">Escribe una consulta y haz clic en <strong>Validar</strong></p>
+          <p class="empty-hint">Usa <kbd>Ctrl+Enter</kbd> para validar rápido</p>
+        </div>
+
+        <!-- Loader -->
+        <div class="results-loading" id="results-loading" role="status" aria-label="Validando..." hidden>
+          <div class="loading-spinner" aria-hidden="true"></div>
+          <span>Analizando consulta...</span>
+        </div>
+
+        <!-- Resultado válido -->
+        <div class="results-valid" id="results-valid" hidden>
+          <div class="valid-banner" role="alert">
+            <span class="valid-icon" aria-hidden="true">✅</span>
+            <div class="valid-content">
+              <strong class="valid-title">Sintaxis correcta</strong>
+              <span class="valid-subtitle">La consulta es válida y está bien formada.</span>
+            </div>
+          </div>
+          <div class="suggestions-list" id="suggestions-valid" aria-label="Sugerencias"></div>
+        </div>
+
+        <!-- Resultado inválido -->
+        <div class="results-invalid" id="results-invalid" hidden>
+          <div class="errors-section" id="errors-section" role="alert" aria-label="Errores encontrados">
+            <h4 class="errors-heading">
+              <span aria-hidden="true">🔴</span> Errores encontrados
+            </h4>
+            <div class="errors-list" id="errors-list"></div>
+          </div>
+          <div class="suggestions-section" id="suggestions-section" hidden>
+            <h4 class="suggestions-heading">
+              <span aria-hidden="true">💡</span> Sugerencias
+            </h4>
+            <div class="suggestions-list" id="suggestions-list"></div>
+          </div>
+        </div>
+          </div>
+
+          <!-- PANEL HISTORIAL -->
+          <div class="history-panel" id="history-panel" role="region" aria-labelledby="history-title" style="flex: 1; overflow-y: auto; border-top: 1px solid var(--border); display: flex; flex-direction: column;">
+            <div class="history-header">
+              <h3 class="history-title" id="history-title">📋 Historial</h3>
+              <button class="btn btn-secondary btn-sm" id="btn-clear-history" aria-label="Limpiar historial">
+                🗑️ Limpiar
+              </button>
+            </div>
+            <div class="history-list" id="history-list" role="list" aria-label="Lista de validaciones anteriores">
+              <div class="history-empty" id="history-empty" role="status">
+                <span aria-hidden="true">📭</span>
+                <p>Sin validaciones aún</p>
+              </div>
+            </div>
+          </div>
+
+        </div> <!-- Fin Right Sidebar -->
+
+      </div>
+    </div>
+
+  </main>
+
+<!-- BARRA DE ESTADO (Footer) -->
+   <footer class="status-bar" role="contentinfo" aria-label="Barra de estado">
+     <div class="status-left">
+       <span class="status-item" id="status-language">
+         <span class="status-icon" aria-hidden="true">🗃️</span>
+         SQL
+       </span>
+       <span class="status-item">
+         <span class="status-icon" aria-hidden="true">⚡</span>
+         Custom Parser v2.0
+       </span>
+     </div>
+     <div class="status-center">
+       <span class="status-item" id="status-message" aria-live="polite">Listo para validar</span>
+     </div>
+     <div class="status-right">
+       <span class="status-item">
+         SQL/NoSQL Validator v1.0
+       </span>
+       <span class="status-item">
+         <span class="status-icon" aria-hidden="true">🕐</span>
+         <span id="status-time"></span>
+       </span>
+     </div>
+   </footer>
+
+  <!-- MODAL: Selector de ejemplos -->
+  <div class="modal-overlay" id="modal-examples" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title">📖 Ejemplos de Consultas</h3>
+        <button class="btn-icon modal-close" id="modal-close" aria-label="Cerrar modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="examples-tabs" role="tablist">
+          <button class="example-tab active" id="ex-tab-sql" role="tab" data-type="sql">SQL</button>
+          <button class="example-tab" id="ex-tab-nosql" role="tab" data-type="nosql">MongoDB</button>
+        </div>
+        <div class="examples-list" id="examples-list" role="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Lista de Usuarios -->
+  <div class="modal-overlay" id="modal-users" role="dialog" aria-modal="true" aria-labelledby="modal-users-title" hidden>
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-users-title">👥 Usuarios Conectados</h3>
+        <button class="btn-icon modal-close" id="modal-users-close" aria-label="Cerrar modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="users-list" id="users-list" role="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST / NOTIFICACIONES -->
+  <div class="toast-container" id="toast-container" role="region" aria-label="Notificaciones" aria-live="polite"></div>
+
+  <!-- Script principal de la app -->
+  <script src="app.js?v=2"></script>
+</body>
+</html>
