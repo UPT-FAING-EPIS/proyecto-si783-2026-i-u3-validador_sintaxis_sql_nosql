@@ -11,8 +11,8 @@ function formatDate(d) {
   if (!d) return '—';
   const date = new Date(d);
   if (isNaN(date)) return '—';
-  return date.toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' }) +
-    ' ' + date.toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit' });
+  return date.toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric', timeZone:'America/Lima' }) +
+    ' ' + date.toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', timeZone:'America/Lima' });
 }
 
 function getBadgeClass(action) {
