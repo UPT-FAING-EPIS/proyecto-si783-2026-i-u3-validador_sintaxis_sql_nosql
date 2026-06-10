@@ -6,27 +6,18 @@ const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
   try {
-    // Intentar inicializar la DB pero no detener el arranque si falla
     try {
       await initDB();
     } catch (dbErr) {
-      console.error('⚠️ Advertencia: No se pudo conectar a la Base de Datos. El servidor iniciará de todos modos pero las funciones de base de datos fallarán.');
-      console.error(dbErr.message);
+      console.error('[SERVER] ⚠️ No se pudo conectar a PostgreSQL. El servidor iniciará pero las funciones de BD fallarán.');
+      console.error('[SERVER]', dbErr.message);
     }
     
-    server.listen(PORT, () => {
-      console.log('');
-      console.log('╔══════════════════════════════════════════╗');
-      console.log('║   SQL/NoSQL Syntax Validator             ║');
-      console.log('║   API Server                             ║');
-      console.log('╠══════════════════════════════════════════╣');
-      console.log(`║   🌐 URL: http://localhost:${PORT}           ║`);
-      console.log(`║   🔧 API: http://localhost:${PORT}/api       ║`);
-      console.log('╚══════════════════════════════════════════╝');
-      console.log('');
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`[SERVER] SQL/NoSQL Syntax Validator corriendo en puerto ${PORT}`);
     });
   } catch (err) {
-    console.error('Failed to start server:', err);
+    console.error('[SERVER] Error fatal al iniciar:', err.message);
     process.exit(1);
   }
 };

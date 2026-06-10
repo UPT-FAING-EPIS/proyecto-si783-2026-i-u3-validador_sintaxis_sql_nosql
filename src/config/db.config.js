@@ -3,21 +3,17 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-console.log('====================================');
-console.log('CONFIGURACIÓN CARGADA');
-console.log('====================================');
-
 const dbUrl = process.env.DATABASE_URL;
+const isProduction = process.env.NODE_ENV === 'production';
 
-// 🔥 EN PRODUCCIÓN: SOLO DATABASE_URL
-if (!dbUrl && process.env.NODE_ENV === 'production') {
+if (!dbUrl && isProduction) {
   throw new Error('❌ DATABASE_URL no configurada en producción');
 }
 
 const poolConfig = dbUrl
   ? {
       connectionString: dbUrl,
-      ssl: { rejectUnauthorized: false } // Railway/Postgres cloud
+      ssl: { rejectUnauthorized: false }
     }
   : {
       host: process.env.DB_HOST,
@@ -27,38 +23,53 @@ const poolConfig = dbUrl
       password: process.env.DB_PASSWORD
     };
 
-console.log('Modo:', dbUrl ? 'Railway / Producción' : 'Local');
+console.log(`[DB] Modo: ${dbUrl ? 'Railway / Producción' : 'Local'}`);
 
 const pool = new Pool(poolConfig);
 
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.error('[DB] Error inesperado en cliente inactivo:', err.message);
 });
 
-// ==============================
-// INIT DB
-// ==============================
 const initDB = async () => {
-  console.log('🔄 Probando conexión PostgreSQL...');
-
   const test = await pool.query('SELECT NOW()');
-
-  console.log('✅ Conexión PostgreSQL exitosa');
-  console.log('Hora servidor:', test.rows[0].now);
+  console.log('[DB] Conexión PostgreSQL exitosa');
 
   const schemaPath = path.join(__dirname, '../database/schema.sql');
 
   if (fs.existsSync(schemaPath)) {
     const schema = fs.readFileSync(schemaPath, 'utf8');
-
     if (schema.trim()) {
       await pool.query(schema);
-      console.log('✅ Schema ejecutado correctamente');
+      console.log('[DB] Schema ejecutado');
     }
   }
 
-  console.log('✅ Base de datos inicializada');
+  // Auto-crear admin inicial desde variables de entorno si no existe ninguno
+  try {
+    const adminCount = await pool.query('SELECT COUNT(*) FROM admins');
+    if (parseInt(adminCount.rows[0].count, 10) === 0) {
+      const adminEmail = process.env.ADMIN_EMAIL;
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      const adminName = process.env.ADMIN_NAME || 'Administrador';
+
+      if (adminEmail && adminPassword) {
+        const bcrypt = require('bcrypt');
+        const hash = await bcrypt.hash(adminPassword, 10);
+        await pool.query(
+          'INSERT INTO admins (nombre, correo, password_hash, rol, activo) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (correo) DO NOTHING',
+          [adminName, adminEmail, hash, 'superadmin', true]
+        );
+        console.log(`[DB] Admin inicial creado: ${adminEmail}`);
+      } else {
+        console.warn('[DB] ⚠️ No hay administradores. Configure ADMIN_EMAIL y ADMIN_PASSWORD.');
+      }
+    }
+  } catch (err) {
+    console.error('[DB] Error creando admin inicial:', err.message);
+  }
+
+  console.log('[DB] Base de datos inicializada');
 };
 
 module.exports = {

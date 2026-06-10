@@ -22,6 +22,40 @@ const MONGO_COMMANDS = [
   'findOneAndUpdate', 'findOneAndDelete'
 ];
 
+function levenshtein(a, b) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
+  for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+function findSimilar(word, list) {
+  for (let kw of list) {
+    if (word === kw) continue;
+    const dist = levenshtein(word, kw);
+    if (dist <= 2 && word.length >= 3) {
+      if (dist === 1 || (dist === 2 && word.length >= 4)) {
+        return kw;
+      }
+    }
+  }
+  return null;
+}
+
 class MongoParser {
   constructor(query) {
     this.query = query.trim();
@@ -63,12 +97,10 @@ class MongoParser {
       return this.getResult();
     }
 
-    // Comprobar si es JSON puro
     if (this.query.startsWith('{') || this.query.startsWith('[')) {
       return this.parseJSON();
     }
 
-    // Estructura esperada: db.<coleccion>.<comando>(...)
     if (!this.match('db')) {
       const token = this.peek();
       this.addError(`Error de sintaxis.\nSe esperaba:\ndb\n\nSe encontró:\n${token.value || 'FIN DE CONSULTA'}`, token.line, token.column, null, token.value, 'Inicia la consulta con "db."');
@@ -81,7 +113,6 @@ class MongoParser {
       return this.getResult();
     }
 
-    // Nombre de colección
     const collectionToken = this.advance();
     if (collectionToken.type !== TokenTypes.IDENTIFIER && collectionToken.type !== TokenTypes.STRING) {
       this.addError(`Error de sintaxis. Nombre de colección no válido.`, collectionToken.line, collectionToken.column, null, collectionToken.value, 'Escribe un nombre de colección válido.');
@@ -94,10 +125,14 @@ class MongoParser {
       return this.getResult();
     }
 
-    // Comando
     const commandToken = this.advance();
     if (!MONGO_COMMANDS.includes(commandToken.value)) {
-      this.addError(`Comando desconocido "${commandToken.value}".`, commandToken.line, commandToken.column, null, commandToken.value, `Soportados: ${MONGO_COMMANDS.slice(0, 5).join(', ')}...`);
+      const sim = findSimilar(commandToken.value, MONGO_COMMANDS);
+      if (sim) {
+        this.addError(`Comando desconocido "${commandToken.value}".`, commandToken.line, commandToken.column, null, commandToken.value, `Quizás quiso escribir: ${sim}`);
+      } else {
+        this.addError(`Comando desconocido "${commandToken.value}".`, commandToken.line, commandToken.column, null, commandToken.value, `Soportados: ${MONGO_COMMANDS.slice(0, 5).join(', ')}...`);
+      }
     }
 
     if (!this.match('(')) {
@@ -108,10 +143,9 @@ class MongoParser {
 
     this.scanObjectAndCheckOperators(1);
 
-    // Check balancing
     if (!this.match(')')) {
       if (this.peek().type !== TokenTypes.EOF) {
-        this.advance(); // Consumimos en caso de que hubiera un ')' al final
+        this.advance(); 
       } else {
         const token = this.tokens[this.tokens.length - 2] || this.peek();
         this.addError(`Error de sintaxis. Falta paréntesis de cierre.`, token.line, token.column, null, null, 'Agregue ) al final del comando.');
@@ -123,10 +157,8 @@ class MongoParser {
 
   parseJSON() {
     try {
-      // Validate JSON structure
       const parsed = JSON.parse(this.query);
       
-      // Check for command
       const keys = Object.keys(parsed);
       let isMongo = false;
       for (const cmd of MONGO_COMMANDS) {
@@ -136,10 +168,12 @@ class MongoParser {
         }
       }
       if (!isMongo) {
-         // Si no tiene "find", "aggregate", etc, igual podria ser un pipeline suelto, pero avisamos.
+         for (const k of keys) {
+            if (k.startsWith('$')) isMongo = true;
+         }
          if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
            const stage = Object.keys(parsed[0])[0];
-           if (stage && MONGO_OPERATORS.includes(stage)) {
+           if (stage && (MONGO_OPERATORS.includes(stage) || stage.startsWith('$'))) {
              isMongo = true;
            }
          }
@@ -148,12 +182,10 @@ class MongoParser {
       if (!isMongo) {
          this.addError(`JSON válido pero no parece una consulta MongoDB reconocida.`, 1, 1, null, null, 'Usa comandos como "find", "aggregate", o operadores como "$match".');
       } else {
-         // Check invalid operators via naive text scan or lexer
-         this.pos = 0; // Reset
+         this.pos = 0; 
          this.scanObjectAndCheckOperators(0, true);
       }
     } catch (e) {
-      // Intentar extraer linea/columna del error JSON
       const match = e.message.match(/position (\d+)/);
       let line = 1; let col = 1;
       if (match) {
@@ -195,7 +227,7 @@ class MongoParser {
       if (token.value === ')') {
         if (!isJson) {
            parenCount--;
-           if (parenCount === 0) break; // Fin del comando principal db.col.cmd(...)
+           if (parenCount === 0) break; 
            if (parenCount < 0) {
              this.addError('Paréntesis de cierre ")" inesperado o sobrando.', token.line, token.column, null, token.value, 'Elimine este paréntesis o verifique las aperturas.');
              parenCount = 0;
@@ -203,16 +235,19 @@ class MongoParser {
         }
       }
 
-      // Validar operadores
       let valToCheck = token.value;
       if (token.type === TokenTypes.STRING) {
-         // Remove quotes to check operators in JSON mode
          valToCheck = valToCheck.replace(/^["']/, '').replace(/["']$/, '');
       }
 
       if (valToCheck.startsWith('$')) {
         if (!MONGO_OPERATORS.includes(valToCheck)) {
-          this.addError(`Operador MongoDB desconocido: ${valToCheck}`, token.line, token.column, valToCheck, valToCheck, 'Asegúrese de escribir correctamente el operador (ej. $match).');
+          const sim = findSimilar(valToCheck, MONGO_OPERATORS);
+          if (sim) {
+             this.addError(`Operador MongoDB desconocido: ${valToCheck}`, token.line, token.column, valToCheck, valToCheck, `Quizás quiso escribir: ${sim}`);
+          } else {
+             this.addError(`Operador MongoDB desconocido: ${valToCheck}`, token.line, token.column, valToCheck, valToCheck, 'Asegúrese de escribir correctamente el operador (ej. $match).');
+          }
         }
       }
 
@@ -227,6 +262,8 @@ class MongoParser {
   getResult() {
     if (this.errors.length === 0) {
       this.suggestions.push(`✅ Sintaxis MongoDB correcta.`);
+    } else if (this.errors[0] && this.errors[0].suggestion && !this.suggestions.includes(this.errors[0].suggestion)) {
+      this.suggestions.push(this.errors[0].suggestion);
     }
 
     return {

@@ -69,7 +69,7 @@ function initMonaco() {
       fontSize: 14,
       fontFamily: "'JetBrains Mono', Consolas, monospace",
       lineNumbers: 'on',
-      minimap: { enabled: true },
+      minimap: { enabled: false },
       wordWrap: 'off',
       automaticLayout: true,
       scrollBeyondLastLine: false,
@@ -168,7 +168,7 @@ async function doValidate() {
        method: 'POST',
        headers: { 
          'Content-Type': 'application/json',
-         'Authorization': 'Bearer ' + localStorage.getItem('validator_token')
+         'Authorization': 'Bearer ' + sessionStorage.getItem('validator_token')
        },
        body: JSON.stringify(requestBody)
      });
@@ -416,7 +416,7 @@ async function loadExamples() {
   try {
     var res = await fetch(API_BASE + '/examples', {
       headers: {
-        'Authorization': 'Bearer ' + localStorage.getItem('validator_token')
+        'Authorization': 'Bearer ' + sessionStorage.getItem('validator_token')
       }
     });
     state.examples = await res.json();
@@ -576,74 +576,18 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('btn-theme-toggle').querySelector('.theme-icon').textContent = '☀️';
   }
 
-  const token = localStorage.getItem('validator_token');
+  const token = sessionStorage.getItem('validator_token');
   if (!token && !window.location.pathname.includes('login.html')) {
     window.location.href = '/login.html';
     return;
   }
 
   // Authentication and User info
-  const username = localStorage.getItem('validator_user') || 'Anónimo';
+  const username = sessionStorage.getItem('validator_user') || 'Anónimo';
   const usernameEl = document.getElementById('header-username');
   if (usernameEl) usernameEl.textContent = username;
 
-  // Poll API for active users
-  let activeUsersList = [];
-  
-  async function fetchActiveUsers() {
-    try {
-      const res = await fetch(API_BASE + '/auth/online-users', {
-        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('validator_token') }
-      });
-      if (res.ok) {
-        activeUsersList = await res.json();
-        document.getElementById('active-users-count').textContent = activeUsersList.length;
-        renderActiveUsers();
-      }
-    } catch (e) {
-      console.error('Error fetching online users', e);
-    }
-  }
 
-  fetchActiveUsers();
-  setInterval(fetchActiveUsers, 10000); // Poll every 10 seconds
-
-  function renderActiveUsers() {
-    const list = document.getElementById('users-list');
-    if (!list) return;
-    list.innerHTML = '';
-    
-    if (activeUsersList.length === 0) {
-      list.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Nadie más está conectado</div>';
-      return;
-    }
-
-    activeUsersList.forEach(user => {
-      const div = document.createElement('div');
-      div.className = 'user-item';
-      div.innerHTML = `
-        <span class="user-item-icon">👤</span>
-        <span class="user-item-name">${escapeHtml(user.username)}</span>
-      `;
-      list.appendChild(div);
-    });
-  }
-
-  // Event Listeners for Users Modal & Logout
-  const btnShowUsers = document.getElementById('btn-show-users');
-  if (btnShowUsers) {
-    btnShowUsers.addEventListener('click', () => {
-      document.getElementById('modal-users').hidden = false;
-      renderActiveUsers();
-    });
-  }
-
-  const btnCloseUsers = document.getElementById('modal-users-close');
-  if (btnCloseUsers) {
-    btnCloseUsers.addEventListener('click', () => {
-      document.getElementById('modal-users').hidden = true;
-    });
-  }
 
   const btnLogout = document.getElementById('btn-logout');
   if (btnLogout) {
@@ -652,15 +596,15 @@ document.addEventListener('DOMContentLoaded', function () {
         await fetch(API_BASE + '/auth/logout', {
           method: 'POST',
           headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('validator_token')
+            'Authorization': 'Bearer ' + sessionStorage.getItem('validator_token')
           }
         });
       } catch(e) {
         console.error('Error logging out', e);
       }
-      localStorage.removeItem('validator_token');
-      localStorage.removeItem('validator_user');
-      localStorage.removeItem('validator_role');
+      sessionStorage.removeItem('validator_token');
+      sessionStorage.removeItem('validator_user');
+      sessionStorage.removeItem('validator_role');
       window.location.href = '/login.html';
     });
   }
@@ -676,20 +620,7 @@ document.addEventListener('DOMContentLoaded', function () {
     showToast('Editor limpiado', 'info');
   });
 
-  document.getElementById('btn-format').addEventListener('click', function () {
-    if (state.language === 'nosql') {
-      try {
-        var parsed = JSON.parse(state.editor.getValue());
-        state.editor.setValue(JSON.stringify(parsed, null, 2));
-        showToast('JSON formateado', 'success');
-      } catch (e) {
-        showToast('JSON no válido', 'error');
-      }
-    } else {
-      state.editor.getAction('editor.action.formatDocument').run();
-      showToast('Código formateado', 'success');
-    }
-  });
+
 
   document.getElementById('btn-example').addEventListener('click', showExamplesModal);
 
@@ -750,9 +681,6 @@ document.getElementById('language-select').addEventListener('change', function (
      showToast('Historial limpiado', 'info');
    });
 
-   document.getElementById('opt-minimap').addEventListener('change', function (e) {
-     state.editor.updateOptions({ minimap: { enabled: e.target.checked } });
-   });
 
   document.getElementById('modal-close').addEventListener('click', function () {
     document.getElementById('modal-examples').hidden = true;
@@ -776,9 +704,7 @@ document.getElementById('language-select').addEventListener('change', function (
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
       const modalEx = document.getElementById('modal-examples');
-      const modalUsers = document.getElementById('modal-users');
       if (modalEx && !modalEx.hidden) modalEx.hidden = true;
-      if (modalUsers && !modalUsers.hidden) modalUsers.hidden = true;
     }
   });
 });

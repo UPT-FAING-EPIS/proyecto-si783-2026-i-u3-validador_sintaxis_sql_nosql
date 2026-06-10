@@ -9,7 +9,7 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorHandler.mid
 const validateRoutes = require('./routes/validate.routes');
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
-const { verifyToken } = require('./middleware/auth.middleware');
+const { verifyToken, isAdmin } = require('./middleware/auth.middleware');
 const { updateActivity } = require('./middleware/activity.middleware');
 
 // Crear aplicación Express
@@ -53,12 +53,21 @@ app.use(updateActivity);
 
 // Rutas de la API
 app.use('/api/auth', authRoutes);
-app.use('/api/admin', verifyToken, adminRoutes); // Protegemos el panel de administración
+app.use('/api/admin', verifyToken, isAdmin, adminRoutes); // Protegemos el panel de administración
 app.use('/api', validateRoutes);
 
 // Servir frontend
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendPath, { maxAge: 0, etag: true }));
+
+// Rutas HTML específicas
+app.get('/admin-login', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'admin-login.html'));
+});
+
+app.get('/admin/dashboard', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'admin.html'));
+});
 
 // SPA fallback
 app.get('*', (req, res) => {

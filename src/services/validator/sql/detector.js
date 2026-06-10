@@ -1,122 +1,198 @@
+/**
+ * detector.js — Detector de motor SQL con puntuación de compatibilidad
+ * Analiza tokens y texto para determinar compatibilidad con cada motor.
+ */
+
+const { TokenTypes } = require('../lexer');
+
 const Engines = {
-  MYSQL: 'MySQL',
+  MYSQL:      'MySQL',
   POSTGRESQL: 'PostgreSQL',
-  SQLITE: 'SQLite',
-  SQLSERVER: 'SQL Server',
-  ORACLE: 'Oracle'
+  SQLITE:     'SQLite',
+  SQLSERVER:  'SQL Server',
+  ORACLE:     'Oracle'
 };
 
-const EngineSignatures = {
-  [Engines.MYSQL]: {
-    types: ['TINYINT', 'MEDIUMINT', 'LONGTEXT', 'ENUM', 'SET', 'DATETIME', 'YEAR', 'MEDIUMTEXT', 'TINYTEXT'],
-    keywords: ['AUTO_INCREMENT', 'SHOW DATABASES', 'SHOW TABLES', 'DESCRIBE', 'LIMIT', 'USE', 'ENGINE', 'CHARACTER SET', 'COLLATE', 'ON DUPLICATE KEY UPDATE', 'SQL_CALC_FOUND_ROWS', 'STRAIGHT_JOIN', 'IGNORE'],
-    functions: ['NOW', 'CURDATE', 'CURTIME', 'CONCAT', 'IFNULL', 'DATE_ADD', 'DATEDIFF', 'GROUP_CONCAT', 'UNIX_TIMESTAMP', 'LAST_INSERT_ID']
-  },
-  [Engines.POSTGRESQL]: {
-    types: ['UUID', 'JSON', 'JSONB', 'ARRAY', 'SERIAL', 'BIGSERIAL', 'TEXT', 'BYTEA', 'MONEY', 'CIDR', 'INET', 'MACADDR', 'TSVECTOR', 'TSQUERY'],
-    keywords: ['RETURNING', 'ILIKE', 'SIMILAR TO', 'LIMIT', 'OFFSET', 'GENERATED ALWAYS AS IDENTITY', 'ON CONFLICT', 'DO NOTHING', 'DO UPDATE SET', 'NULLS FIRST', 'NULLS LAST', 'WINDOW', 'FILTER'],
-    functions: ['NOW', 'STRING_AGG', 'COALESCE', 'CURRENT_DATE', 'CURRENT_TIMESTAMP', 'TO_CHAR', 'TO_DATE', 'MAKE_DATE', 'EXTRACT']
-  },
-  [Engines.SQLITE]: {
-    types: ['INTEGER', 'TEXT', 'BLOB', 'REAL', 'NUMERIC'],
-    keywords: ['AUTOINCREMENT', 'PRAGMA', 'LIMIT', 'OFFSET', 'WITHOUT ROWID', 'STRICT', 'ON CONFLICT IGNORE', 'ON CONFLICT REPLACE'],
-    functions: ['IFNULL', 'STRFTIME', 'DATE', 'TIME', 'DATETIME', 'JULIANDAY', 'LAST_INSERT_ROWID']
-  },
-  [Engines.SQLSERVER]: {
-    types: ['UNIQUEIDENTIFIER', 'NVARCHAR', 'DATETIME2', 'MONEY', 'SMALLMONEY', 'BIT', 'IMAGE', 'HIERARCHYID', 'DATETIMEOFFSET'],
-    keywords: ['OUTPUT', 'TOP', 'IDENTITY', 'GO', 'NOLOCK', 'WITH (NOLOCK)', 'CROSS APPLY', 'OUTER APPLY', 'OPTION (RECOMPILE)', 'PIVOT', 'UNPIVOT'],
-    functions: ['GETDATE', 'ISNULL', 'NEWID', 'LEN', 'CHARINDEX', 'DATENAME', 'DATEADD', 'DATEDIFF', 'SCOPE_IDENTITY']
-  },
-  [Engines.ORACLE]: {
-    types: ['NUMBER', 'VARCHAR2', 'NVARCHAR2', 'CLOB', 'BLOB', 'BFILE', 'RAW', 'TIMESTAMP', 'ROWID', 'UROWID'],
-    keywords: ['ROWNUM', 'MINUS', 'PACKAGE', 'SYNONYM', 'MATERIALIZED VIEW', 'RETURNING', 'CONNECT BY', 'START WITH', 'PRIOR', 'DUAL', 'FETCH FIRST', 'ROWS ONLY'],
-    functions: ['SYSDATE', 'NVL', 'NVL2', 'TO_CHAR', 'TO_DATE', 'TO_NUMBER', 'WM_CONCAT', 'LISTAGG', 'TRUNC', 'INSTR', 'SUBSTR']
-  }
-};
+const ALL_ENGINES = Object.values(Engines);
 
+/*
+ * Señales de motor: cada señal tiene un peso y los motores donde es válida.
+ * Si una señal aparece, los motores donde NO es válida pierden compatibilidad.
+ */
+const TOKEN_SIGNALS = [
+  // MySQL-specific
+  { pattern: 'AUTO_INCREMENT',  engines: [Engines.MYSQL], weight: 30 },
+  { pattern: 'ENGINE',          engines: [Engines.MYSQL], weight: 20, context: 'DDL' },
+  { pattern: 'SHOW',            engines: [Engines.MYSQL], weight: 15 },
+  { pattern: 'DESCRIBE',        engines: [Engines.MYSQL, Engines.ORACLE], weight: 10 },
+  { pattern: 'CURDATE',         engines: [Engines.MYSQL], weight: 20 },
+  { pattern: 'CURTIME',         engines: [Engines.MYSQL], weight: 20 },
+  { pattern: 'IFNULL',          engines: [Engines.MYSQL, Engines.SQLITE], weight: 15 },
+  { pattern: 'GROUP_CONCAT',    engines: [Engines.MYSQL], weight: 25 },
+  { pattern: 'LAST_INSERT_ID',  engines: [Engines.MYSQL], weight: 30 },
+  { pattern: 'UNIX_TIMESTAMP',  engines: [Engines.MYSQL], weight: 25 },
+
+  // PostgreSQL-specific
+  { pattern: 'ILIKE',           engines: [Engines.POSTGRESQL], weight: 30 },
+  { pattern: 'RETURNING',       engines: [Engines.POSTGRESQL, Engines.SQLITE, Engines.ORACLE], weight: 15 },
+  { pattern: 'STRING_AGG',      engines: [Engines.POSTGRESQL, Engines.SQLSERVER], weight: 20 },
+  { pattern: 'ARRAY_AGG',       engines: [Engines.POSTGRESQL], weight: 25 },
+  { pattern: 'GEN_RANDOM_UUID', engines: [Engines.POSTGRESQL], weight: 30 },
+  { pattern: 'NEXTVAL',         engines: [Engines.POSTGRESQL, Engines.ORACLE], weight: 20 },
+
+  // SQL Server-specific
+  { pattern: 'TOP',             engines: [Engines.SQLSERVER], weight: 30 },
+  { pattern: 'NOLOCK',          engines: [Engines.SQLSERVER], weight: 35 },
+  { pattern: 'NEWID',           engines: [Engines.SQLSERVER], weight: 30 },
+  { pattern: 'SCOPE_IDENTITY',  engines: [Engines.SQLSERVER], weight: 30 },
+  { pattern: 'GETDATE',         engines: [Engines.SQLSERVER], weight: 30 },
+  { pattern: 'GO',              engines: [Engines.SQLSERVER], weight: 10, context: 'standalone' },
+  { pattern: 'IDENTITY',        engines: [Engines.SQLSERVER], weight: 20 },
+  { pattern: 'CHARINDEX',       engines: [Engines.SQLSERVER], weight: 20 },
+
+  // Oracle-specific
+  { pattern: 'ROWNUM',          engines: [Engines.ORACLE], weight: 35 },
+  { pattern: 'SYSDATE',         engines: [Engines.ORACLE], weight: 30 },
+  { pattern: 'SYSTIMESTAMP',    engines: [Engines.ORACLE], weight: 35 },
+  { pattern: 'CONNECT',         engines: [Engines.ORACLE], weight: 25 },
+  { pattern: 'PRIOR',           engines: [Engines.ORACLE], weight: 20 },
+  { pattern: 'DUAL',            engines: [Engines.ORACLE, Engines.MYSQL], weight: 15 },
+  { pattern: 'NVL',             engines: [Engines.ORACLE], weight: 25 },
+  { pattern: 'NVL2',            engines: [Engines.ORACLE], weight: 30 },
+  { pattern: 'LISTAGG',         engines: [Engines.ORACLE], weight: 30 },
+  { pattern: 'DECODE',          engines: [Engines.ORACLE], weight: 20 },
+  { pattern: 'MINUS',           engines: [Engines.ORACLE], weight: 20 },
+
+  // SQLite-specific
+  { pattern: 'PRAGMA',          engines: [Engines.SQLITE], weight: 40 },
+  { pattern: 'AUTOINCREMENT',   engines: [Engines.SQLITE], weight: 35 },
+  { pattern: 'STRFTIME',        engines: [Engines.SQLITE], weight: 25 },
+  { pattern: 'JULIANDAY',       engines: [Engines.SQLITE], weight: 30 },
+  { pattern: 'LAST_INSERT_ROWID', engines: [Engines.SQLITE], weight: 30 },
+];
+
+const TYPE_SIGNALS = [
+  { pattern: 'NVARCHAR',          engines: [Engines.SQLSERVER, Engines.ORACLE], weight: 25 },
+  { pattern: 'VARCHAR2',          engines: [Engines.ORACLE], weight: 35 },
+  { pattern: 'UNIQUEIDENTIFIER',  engines: [Engines.SQLSERVER], weight: 35 },
+  { pattern: 'JSONB',             engines: [Engines.POSTGRESQL], weight: 40 },
+  { pattern: 'UUID',              engines: [Engines.POSTGRESQL], weight: 20 },
+  { pattern: 'SERIAL',            engines: [Engines.POSTGRESQL], weight: 25 },
+  { pattern: 'BIGSERIAL',         engines: [Engines.POSTGRESQL], weight: 30 },
+  { pattern: 'BYTEA',             engines: [Engines.POSTGRESQL], weight: 30 },
+  { pattern: 'TSVECTOR',          engines: [Engines.POSTGRESQL], weight: 35 },
+  { pattern: 'MONEY',             engines: [Engines.POSTGRESQL, Engines.SQLSERVER], weight: 10 },
+  { pattern: 'HIERARCHYID',       engines: [Engines.SQLSERVER], weight: 35 },
+  { pattern: 'DATETIMEOFFSET',    engines: [Engines.SQLSERVER], weight: 30 },
+  { pattern: 'DATETIME2',         engines: [Engines.SQLSERVER], weight: 30 },
+  { pattern: 'TINYTEXT',          engines: [Engines.MYSQL], weight: 20 },
+  { pattern: 'MEDIUMTEXT',        engines: [Engines.MYSQL], weight: 20 },
+  { pattern: 'LONGTEXT',          engines: [Engines.MYSQL], weight: 20 },
+  { pattern: 'ENUM',              engines: [Engines.MYSQL, Engines.POSTGRESQL], weight: 10 },
+];
+
+const TEXT_SIGNALS = [
+  { pattern: 'ON DUPLICATE KEY UPDATE', engines: [Engines.MYSQL], weight: 35 },
+  { pattern: 'ON CONFLICT',             engines: [Engines.POSTGRESQL, Engines.SQLITE], weight: 25 },
+  { pattern: 'DO NOTHING',              engines: [Engines.POSTGRESQL, Engines.SQLITE], weight: 25 },
+  { pattern: 'WITH (NOLOCK)',            engines: [Engines.SQLSERVER], weight: 40 },
+  { pattern: 'CROSS APPLY',             engines: [Engines.SQLSERVER], weight: 35 },
+  { pattern: 'OUTER APPLY',             engines: [Engines.SQLSERVER], weight: 35 },
+  { pattern: 'CONNECT BY',              engines: [Engines.ORACLE], weight: 35 },
+  { pattern: 'START WITH',              engines: [Engines.ORACLE], weight: 25 },
+  { pattern: 'FETCH FIRST',             engines: [Engines.ORACLE, Engines.POSTGRESQL, Engines.SQLSERVER], weight: 15 },
+  { pattern: 'WITHOUT ROWID',           engines: [Engines.SQLITE], weight: 35 },
+  { pattern: 'CHARACTER SET',           engines: [Engines.MYSQL], weight: 20 },
+];
+
+/**
+ * Detecta el motor SQL más probable y compatibilidades.
+ * @param {Token[]} tokens - Lista de tokens del lexer
+ * @param {string} queryText - Texto original de la consulta
+ * @returns {{ engine: string, confidence: number, compatible: string[], incompatible: object[] }}
+ */
 function detectEngine(tokens, queryText) {
   const upperQuery = queryText.toUpperCase();
-  const scores = {
-    [Engines.MYSQL]: 0,
-    [Engines.POSTGRESQL]: 0,
-    [Engines.SQLITE]: 0,
-    [Engines.SQLSERVER]: 0,
-    [Engines.ORACLE]: 0
+
+  const scores = {};
+  ALL_ENGINES.forEach(e => { scores[e] = 0; });
+
+  const tokenValues = new Set();
+  tokens.forEach(t => {
+    if (t.type !== TokenTypes.EOF && t.type !== TokenTypes.COMMENT) {
+      tokenValues.add(t.value.toUpperCase());
+    }
+  });
+
+  let validEngines = new Set(ALL_ENGINES);
+  const incompatibleReasons = {};
+
+  const applySignal = (sig) => {
+    sig.engines.forEach(eng => { scores[eng] += sig.weight; });
+    if (sig.weight >= 15) {
+       for (const eng of ALL_ENGINES) {
+         if (!sig.engines.includes(eng)) {
+           validEngines.delete(eng);
+           incompatibleReasons[eng] = incompatibleReasons[eng] || [];
+           incompatibleReasons[eng].push(sig.pattern);
+         }
+       }
+    }
   };
 
-  const idTokens = tokens.filter(t => t.type === 'IDENTIFIER' || t.type === 'KEYWORD').map(t => t.value.toUpperCase());
-
-  for (const engine in EngineSignatures) {
-    const sig = EngineSignatures[engine];
-    
-    // Check types & keywords
-    sig.types.forEach(type => {
-      if (idTokens.includes(type)) scores[engine] += 15;
-    });
-    
-    sig.keywords.forEach(kw => {
-      if (kw.includes(' ')) {
-        if (upperQuery.includes(kw)) scores[engine] += 20;
-      } else {
-        if (idTokens.includes(kw)) scores[engine] += 15;
-      }
-    });
-
-    sig.functions.forEach(fn => {
-      if (idTokens.includes(fn)) scores[engine] += 10;
-    });
+  const hasDoubleCast = tokens.some(t => t.type === TokenTypes.DOUBLECOLON);
+  if (hasDoubleCast) {
+     applySignal({ pattern: 'cast (::)', engines: [Engines.POSTGRESQL], weight: 35 });
   }
 
-  // Extra heuristics explicit in prompt requirements
-  if (upperQuery.includes('TOP') && !upperQuery.includes('LIMIT')) scores[Engines.SQLSERVER] += 30;
-  if (upperQuery.includes('LIMIT')) {
-    scores[Engines.MYSQL] += 10;
-    scores[Engines.POSTGRESQL] += 10;
-    scores[Engines.SQLITE] += 10;
+  TOKEN_SIGNALS.forEach(sig => {
+    if (tokenValues.has(sig.pattern)) applySignal(sig);
+  });
+
+  TYPE_SIGNALS.forEach(sig => {
+    if (tokenValues.has(sig.pattern)) applySignal(sig);
+  });
+
+  TEXT_SIGNALS.forEach(sig => {
+    if (upperQuery.includes(sig.pattern)) applySignal(sig);
+  });
+
+  if (tokenValues.has('LIMIT')) {
+    applySignal({ pattern: 'LIMIT', engines: [Engines.MYSQL, Engines.POSTGRESQL, Engines.SQLITE], weight: 15 });
   }
-  if (upperQuery.includes('JSONB')) scores[Engines.POSTGRESQL] += 40;
-  if (upperQuery.includes('VARCHAR2')) scores[Engines.ORACLE] += 40;
-  if (upperQuery.includes('UNIQUEIDENTIFIER')) scores[Engines.SQLSERVER] += 40;
-  if (upperQuery.includes('PRAGMA')) scores[Engines.SQLITE] += 40;
-  if (upperQuery.includes('CURDATE()')) scores[Engines.MYSQL] += 30;
-  if (upperQuery.includes('GETDATE()')) scores[Engines.SQLSERVER] += 30;
-  if (upperQuery.includes('SYSDATE') || upperQuery.includes('DUAL')) scores[Engines.ORACLE] += 30;
-  if (upperQuery.includes('ROWNUM')) scores[Engines.ORACLE] += 30;
 
-  // Determinar el máximo
-  let maxScore = -1;
-  let detectedEngine = Engines.POSTGRESQL; // Default fallback
-
-  let totalScore = 0;
-  for (const engine in scores) {
-    totalScore += scores[engine];
-    if (scores[engine] > maxScore) {
-      maxScore = scores[engine];
-      detectedEngine = engine;
+  let maxScore = 0;
+  let detectedEngine = Engines.POSTGRESQL;
+  for (const eng of ALL_ENGINES) {
+    if (scores[eng] > maxScore) {
+      maxScore = scores[eng];
+      detectedEngine = eng;
     }
   }
 
-  let compatible = [];
   if (maxScore === 0) {
-    // Si no hay palabras exclusivas, es SQL estándar genérico
-    compatible = [Engines.MYSQL, Engines.POSTGRESQL, Engines.SQLITE, Engines.SQLSERVER, Engines.ORACLE];
-    return { engine: detectedEngine, confidence: 50, compatible };
+    return {
+      engine: 'SQL Estándar ANSI',
+      confidence: 100,
+      compatible: [...ALL_ENGINES],
+      incompatible: []
+    };
   }
 
-  for (const eng in scores) {
-    // Si un motor tiene una puntuación no nula, o si la query es tan estándar que no rompe nada
-    if (scores[eng] > 0 || maxScore < 30) { 
-      if (!compatible.includes(eng)) compatible.push(eng);
-    }
-  }
-  
-  if (compatible.length === 0) compatible = [detectedEngine];
+  validEngines.add(detectedEngine);
 
-  let confidence = Math.round((maxScore / totalScore) * 100);
-  if (confidence > 100) confidence = 99; // Cap at 99 unless absolute certainty
-  if (totalScore === maxScore && maxScore > 20) confidence = 100;
+  const compatible = Array.from(validEngines);
+  const incompatible = ALL_ENGINES.filter(e => !validEngines.has(e)).map(e => ({
+      engine: e,
+      reasons: [...new Set(incompatibleReasons[e])]
+  }));
 
-  return { engine: detectedEngine, confidence, compatible };
+  const totalScore = ALL_ENGINES.reduce((s, e) => s + scores[e], 0);
+  let confidence = totalScore > 0 ? Math.round((maxScore / totalScore) * 100) : 50;
+  if (confidence > 99) confidence = 100;
+  if (totalScore === maxScore && maxScore >= 25) confidence = 100;
+
+  return { engine: detectedEngine, confidence, compatible, incompatible };
 }
 
-module.exports = { detectEngine, Engines };
+module.exports = { detectEngine, Engines, ALL_ENGINES };

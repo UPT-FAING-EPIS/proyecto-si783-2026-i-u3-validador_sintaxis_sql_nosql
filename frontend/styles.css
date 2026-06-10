@@ -580,15 +580,41 @@ body.theme-light .status-bar { background: #005fb8; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* ── RESPONSIVE ── */
-@media (max-width: 768px) {
-  :root { --sidebar-w: 0px; }
-  .sidebar { display: none; }
-  .editor-panel { width: 100%; }
-  .tab-label { display: none; }
-  .header-center { flex: 1; }
+/* ── LAYOUT EDITOR ── */
+.editor-content-wrapper {
+  display: flex; flex: 1; overflow: hidden; flex-direction: row;
 }
+.right-sidebar {
+  width: 25%; min-width: 300px; flex: none; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--surface-panel);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1024px) {
+  .right-sidebar { width: 300px; }
+  .sidebar { width: 200px; }
+}
+
+@media (max-width: 768px) {
+  :root { --sidebar-w: 100%; }
+  .app-layout { flex-direction: column; overflow: auto; }
+  .sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; border-right: none; border-bottom: 1px solid var(--border); overflow-y: visible; }
+  .sidebar-section { flex: 1; min-width: 140px; border-bottom: none; border-right: 1px solid var(--border); padding: 8px; }
+  .sidebar-section:last-child { border-right: none; }
+  
+  .editor-panel { width: 100%; flex: 1; display: flex; flex-direction: column; min-height: 600px; }
+  .editor-content-wrapper { flex-direction: column; flex: 1; }
+  .monaco-container { flex: 1; min-height: 250px; }
+  .right-sidebar { width: 100%; height: 250px; border-left: none; border-top: 2px solid var(--border); min-width: 0; flex: none; }
+  .results-panel { flex: 1; }
+  .history-panel { display: none; } /* Ocultar historial en móvil para ahorrar espacio */
+}
+
 @media (max-width: 480px) {
   .status-left, .status-right { display: none; }
   .logo-subtitle { display: none; }
+  .sidebar-section { min-width: 40%; border-bottom: 1px solid var(--border); }
+  .stats-section { display: none; } /* Ocultar stats en pantallas muy pequeñas */
+  .actions-group { flex-direction: row; flex-wrap: wrap; }
+  .actions-group .btn { flex: 1; min-width: 45%; justify-content: center; }
+  .btn-shortcut { display: none; }
 }

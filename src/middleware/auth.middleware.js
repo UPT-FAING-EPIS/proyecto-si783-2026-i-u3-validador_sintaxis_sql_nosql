@@ -19,7 +19,8 @@ const verifyToken = (req, res, next) => {
 };
 
 const isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'superadmin' || (adminEmail && req.user.email === adminEmail))) {
     next();
   } else {
     res.status(403).json({ error: 'Requiere permisos de administrador' });

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Administrativo - SQL/NoSQL Validator</title>
+  <meta name="description" content="Panel de administración del SQL/NoSQL Syntax Validator" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin-dashboard.css" />
+  <script>
+    if (!sessionStorage.getItem('admin_token')) {
+      window.location.href = '/admin-login.html';
+    }
+  </script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="adm-header" id="adm-header">
+    <div class="adm-header-left">
+      <span class="adm-logo-icon">⚡</span>
+      <div class="adm-logo-text">
+        <span class="adm-logo-title">SQL/NoSQL Syntax Validator</span>
+        <span class="adm-logo-sub">Panel Administrativo</span>
+      </div>
+    </div>
+    <div class="adm-header-right">
+      <button class="adm-btn adm-btn-ghost" id="btn-volver" title="Ir al validador">← Validador</button>
+      <button class="adm-btn adm-btn-danger" id="btn-logout" title="Cerrar sesión">⏻ Cerrar Sesión</button>
+      <div class="adm-user-badge">
+        <span class="adm-user-dot"></span>
+        <span class="adm-user-name" id="header-admin-name">Admin</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="adm-main">
+
+    <!-- Profile Bar -->
+    <section class="adm-profile-bar" id="profile-bar">
+      <div class="adm-profile-item">
+        <span class="adm-profile-label">Administrador</span>
+        <span class="adm-profile-value" id="info-name">—</span>
+      </div>
+      <div class="adm-profile-item">
+        <span class="adm-profile-label">Correo</span>
+        <span class="adm-profile-value" id="info-email">—</span>
+      </div>
+      <div class="adm-profile-item">
+        <span class="adm-profile-label">Rol</span>
+        <span class="adm-profile-value adm-accent" id="info-role">—</span>
+      </div>
+      <div class="adm-profile-item">
+        <span class="adm-profile-label">Último Acceso</span>
+        <span class="adm-profile-value" id="info-time">—</span>
+      </div>
+    </section>
+
+    <!-- STATS CARDS -->
+    <section class="adm-section">
+      <h2 class="adm-section-title"><span class="adm-section-icon">📊</span> Estadísticas del Sistema</h2>
+      <div class="adm-stats-grid" id="stats-grid">
+        <div class="adm-stat-card" data-color="blue">
+          <div class="adm-stat-icon">👥</div>
+          <div class="adm-stat-value" id="stat-total-users">—</div>
+          <div class="adm-stat-label">Usuarios Registrados</div>
+        </div>
+        <div class="adm-stat-card" data-color="purple">
+          <div class="adm-stat-icon">🛡️</div>
+          <div class="adm-stat-value" id="stat-admins">—</div>
+          <div class="adm-stat-label">Administradores</div>
+        </div>
+        <div class="adm-stat-card" data-color="cyan">
+          <div class="adm-stat-icon">🗃️</div>
+          <div class="adm-stat-value" id="stat-sql-validations">—</div>
+          <div class="adm-stat-label">Validaciones SQL</div>
+        </div>
+        <div class="adm-stat-card" data-color="green">
+          <div class="adm-stat-icon">🍃</div>
+          <div class="adm-stat-value" id="stat-mongo-validations">—</div>
+          <div class="adm-stat-label">Validaciones MongoDB</div>
+        </div>
+        <div class="adm-stat-card" data-color="amber">
+          <div class="adm-stat-icon">🔑</div>
+          <div class="adm-stat-value" id="stat-sessions">—</div>
+          <div class="adm-stat-label">Sesiones Iniciadas</div>
+        </div>
+        <div class="adm-stat-card" data-color="pink">
+          <div class="adm-stat-icon">📋</div>
+          <div class="adm-stat-value" id="stat-events">—</div>
+          <div class="adm-stat-label">Eventos Registrados</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY TABLE -->
+    <section class="adm-section">
+      <h2 class="adm-section-title"><span class="adm-section-icon">📋</span> Actividad Reciente</h2>
+      <div class="adm-table-wrap" id="audit-wrap">
+        <table class="adm-table" id="audit-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Usuario</th>
+              <th>Acción</th>
+              <th>IP</th>
+              <th>Detalles</th>
+            </tr>
+          </thead>
+          <tbody id="audit-tbody"></tbody>
+        </table>
+        <div class="adm-empty" id="audit-empty" hidden>No existen registros disponibles</div>
+      </div>
+    </section>
+
+    <!-- SYSTEM LOGS -->
+    <section class="adm-section">
+      <h2 class="adm-section-title"><span class="adm-section-icon">🔍</span> Logs del Sistema</h2>
+      <div class="adm-filters" id="log-filters">
+        <button class="adm-filter-btn active" data-filter="ALL">Todos</button>
+        <button class="adm-filter-btn" data-filter="ACCESS">Accesos</button>
+        <button class="adm-filter-btn" data-filter="VALIDATIONS">Validaciones</button>
+        <button class="adm-filter-btn" data-filter="ADMIN">Administración</button>
+      </div>
+      <div class="adm-table-wrap" id="logs-wrap">
+        <table class="adm-table" id="logs-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Usuario</th>
+              <th>Tipo</th>
+              <th>Detalles</th>
+              <th>IP</th>
+            </tr>
+          </thead>
+          <tbody id="logs-tbody"></tbody>
+        </table>
+        <div class="adm-empty" id="logs-empty" hidden>No existen registros disponibles</div>
+      </div>
+    </section>
+
+    <!-- ADMINS TABLE -->
+    <section class="adm-section">
+      <div class="adm-section-header">
+        <h2 class="adm-section-title"><span class="adm-section-icon">🛡️</span> Administradores</h2>
+        <button class="adm-btn adm-btn-neon" id="btn-create-admin">+ Crear Administrador</button>
+      </div>
+      <div class="adm-table-wrap" id="admins-wrap">
+        <table class="adm-table" id="admins-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Correo</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Último Acceso</th>
+            </tr>
+          </thead>
+          <tbody id="admins-tbody"></tbody>
+        </table>
+        <div class="adm-empty" id="admins-empty" hidden>No existen registros disponibles</div>
+      </div>
+    </section>
+
+    <!-- USERS TABLE -->
+    <section class="adm-section">
+      <h2 class="adm-section-title"><span class="adm-section-icon">👥</span> Usuarios Registrados</h2>
+      <div class="adm-table-wrap" id="users-wrap">
+        <table class="adm-table" id="users-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Correo</th>
+              <th>Última Conexión</th>
+              <th>Fecha de Registro</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+        <div class="adm-empty" id="users-empty" hidden>No existen registros disponibles</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- CREATE ADMIN MODAL -->
+  <div class="adm-modal-overlay" id="modal-create-admin" hidden>
+    <div class="adm-modal">
+      <div class="adm-modal-header">
+        <h3>Crear Administrador</h3>
+        <button class="adm-modal-close" id="modal-close">✕</button>
+      </div>
+      <form id="form-create-admin" class="adm-modal-body">
+        <div class="adm-form-group">
+          <label for="new-admin-name">Nombre</label>
+          <input type="text" id="new-admin-name" required placeholder="Nombre completo" />
+        </div>
+        <div class="adm-form-group">
+          <label for="new-admin-email">Correo</label>
+          <input type="email" id="new-admin-email" required placeholder="correo@ejemplo.com" />
+        </div>
+        <div class="adm-form-group">
+          <label for="new-admin-pass">Contraseña</label>
+          <input type="password" id="new-admin-pass" required placeholder="••••••••" minlength="6" />
+        </div>
+        <div class="adm-form-group">
+          <label for="new-admin-role">Rol</label>
+          <select id="new-admin-role">
+            <option value="admin">Admin</option>
+            <option value="superadmin">Super Admin</option>
+          </select>
+        </div>
+        <div class="adm-form-error" id="form-error" hidden></div>
+        <button type="submit" class="adm-btn adm-btn-neon" style="width:100%;margin-top:10px;">Crear Administrador</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="adm-toast-container" id="toast-container"></div>
+
+  <!-- ERROR OVERLAY -->
+  <div class="adm-error-banner" id="error-banner" hidden>
+    <span>⚠️ No fue posible cargar la información. Verifica tu conexión.</span>
+    <button class="adm-btn adm-btn-ghost" onclick="location.reload()">Reintentar</button>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

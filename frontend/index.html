@@ -16,7 +16,7 @@
 
   <!-- Auth Check -->
   <script>
-    if (!localStorage.getItem('validator_token')) {
+    if (!sessionStorage.getItem('validator_token')) {
       window.location.href = '/login.html';
     }
   </script>
@@ -45,11 +45,7 @@
     </div>
 
     <div class="header-right">
-      <button class="active-users-indicator" id="btn-show-users" aria-live="polite" title="Ver usuarios conectados">
-        <span class="active-users-icon" aria-hidden="true">👥</span>
-        <span class="active-users-count" id="active-users-count">0</span>
-        <span class="active-users-text">online</span>
-      </button>
+
       <button class="btn-icon" id="btn-theme-toggle" title="Cambiar tema" aria-label="Cambiar entre tema claro y oscuro">
         <span class="theme-icon">🌙</span>
       </button>
@@ -101,10 +97,7 @@
             Validar
             <span class="btn-shortcut">Ctrl+Enter</span>
           </button>
-          <button class="btn btn-secondary" id="btn-format" aria-label="Formatear código">
-            <span class="btn-icon" aria-hidden="true">✨</span>
-            Formatear
-          </button>
+
           <button class="btn btn-secondary" id="btn-clear" aria-label="Limpiar editor">
             <span class="btn-icon" aria-hidden="true">🗑️</span>
             Limpiar
@@ -125,22 +118,6 @@
         </div>
       </section>
 
-<!-- Opciones -->
-       <section class="sidebar-section" aria-labelledby="options-heading">
-         <h2 class="section-title" id="options-heading">
-           <span class="section-icon" aria-hidden="true">⚙️</span>
-           Opciones
-         </h2>
-         <div class="options-group">
-           <label class="toggle-label" for="opt-minimap">
-             <span class="toggle-text">Minimapa</span>
-             <div class="toggle-switch">
-               <input type="checkbox" id="opt-minimap" role="switch" aria-checked="true" checked />
-               <span class="toggle-slider"></span>
-             </div>
-           </label>
-         </div>
-       </section>
 
       <!-- Estadísticas -->
       <section class="sidebar-section stats-section" aria-labelledby="stats-heading">
@@ -187,18 +164,18 @@
       </div>
 
       <!-- WRAPPER PARA LAYOUT SIDE-BY-SIDE -->
-      <div class="editor-content-wrapper" style="display: flex; flex: 1; overflow: hidden; flex-direction: row;">
+      <div class="editor-content-wrapper">
         
         <!-- Contenedor del Monaco Editor -->
-        <div class="monaco-container" id="monaco-container" role="textbox" aria-label="Editor de código SQL/NoSQL" aria-multiline="true" style="flex: 1;">
+        <div class="monaco-container" id="monaco-container" role="textbox" aria-label="Editor de código SQL/NoSQL" aria-multiline="true">
         <div id="monaco-editor"></div>
       </div>
 
         <!-- RIGHT SIDEBAR (Resultados + Historial) -->
-        <div class="right-sidebar" style="width: 25%; min-width: 300px; flex: none; display: flex; flex-direction: column; border-left: 1px solid var(--border);">
+        <div class="right-sidebar" id="right-sidebar">
           
           <!-- PANEL DE RESULTADOS -->
-          <div class="results-panel" id="results-panel" aria-label="Panel de resultados" style="flex: 1; overflow-y: auto; border-top: none; border-left: none; display: flex; flex-direction: column;">
+          <div class="results-panel" id="results-panel" aria-label="Panel de resultados">
         <div class="results-header">
           <h3 class="results-title" id="results-title">
             <span id="results-icon" aria-hidden="true">🔎</span>
@@ -251,7 +228,7 @@
           </div>
 
           <!-- PANEL HISTORIAL -->
-          <div class="history-panel" id="history-panel" role="region" aria-labelledby="history-title" style="flex: 1; overflow-y: auto; border-top: 1px solid var(--border); display: flex; flex-direction: column;">
+          <div class="history-panel" id="history-panel" role="region" aria-labelledby="history-title">
             <div class="history-header">
               <h3 class="history-title" id="history-title">📋 Historial</h3>
               <button class="btn btn-secondary btn-sm" id="btn-clear-history" aria-label="Limpiar historial">
@@ -316,18 +293,7 @@
     </div>
   </div>
 
-  <!-- MODAL: Lista de Usuarios -->
-  <div class="modal-overlay" id="modal-users" role="dialog" aria-modal="true" aria-labelledby="modal-users-title" hidden>
-    <div class="modal" style="max-width: 400px;">
-      <div class="modal-header">
-        <h3 class="modal-title" id="modal-users-title">👥 Usuarios Conectados</h3>
-        <button class="btn-icon modal-close" id="modal-users-close" aria-label="Cerrar modal">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="users-list" id="users-list" role="list"></div>
-      </div>
-    </div>
-  </div>
+
 
   <!-- TOAST / NOTIFICACIONES -->
   <div class="toast-container" id="toast-container" role="region" aria-label="Notificaciones" aria-live="polite"></div>

@@ -4,8 +4,9 @@
  */
 
 const { validateQueryAuto } = require('../services/validation.service');
+const db = require('../config/db.config');
 
-function validateQuery(req, res, next) {
+async function validateQuery(req, res, next) {
   try {
     const { query } = req.body;
 
@@ -19,6 +20,16 @@ function validateQuery(req, res, next) {
     }
 
     const result = validateQueryAuto(query);
+    
+    if (req.user) {
+       const ipAddress = req.ip || req.connection.remoteAddress;
+       const dialect = result.dialect || 'unknown';
+       db.query(
+         'INSERT INTO audit_logs (usuario, accion, detalles, ip) VALUES ($1, $2, $3, $4)',
+         [req.user.email, 'VALIDATION', `Validación ${dialect} - ${result.valid ? 'Exitosa' : 'Fallida'}`, ipAddress]
+       ).catch(err => console.error('Error logging validation:', err));
+    }
+
     return res.json(result);
 
   } catch (err) {

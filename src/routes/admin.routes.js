@@ -6,7 +6,11 @@ const {
   getRecentLogins, 
   getLoginHistory, 
   searchUserByEmail,
-  getTotalUsers
+  getTotalUsers,
+  getAuditLogs,
+  getAdmins,
+  createAdmin,
+  deactivateAdmin
 } = require('../controllers/admin.controller');
 
 // Obtener estadísticas generales
@@ -26,5 +30,17 @@ router.get('/logins/history', getLoginHistory);
 
 // Buscar usuario por correo (?email=...)
 router.get('/users/search', searchUserByEmail);
+
+// Obtener registros de auditoría
+router.get('/audit', getAuditLogs);
+
+// Obtener administradores
+router.get('/admins', getAdmins);
+
+// Crear administrador
+router.post('/admins', createAdmin);
+
+// Desactivar administrador
+router.put('/admins/:id/deactivate', deactivateAdmin);
 
 module.exports = router;
