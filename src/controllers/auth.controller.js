@@ -61,7 +61,8 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Correo y contraseña son requeridos' });
     }
 
-    const result = await db.query('SELECT * FROM users WHERE email = $1 AND activo = true', [email]);
+    // Permitir ingreso a usuarios con activo = true o activo = null (existentes antes de la actualización)
+    const result = await db.query('SELECT * FROM users WHERE email = $1 AND activo IS NOT FALSE', [email]);
     const user = result.rows[0];
     
     if (!user || !user.password_hash) {
@@ -110,7 +111,7 @@ const adminLogin = async (req, res) => {
       return res.status(400).json({ error: 'Correo y contraseña son requeridos' });
     }
 
-    const result = await db.query('SELECT * FROM admins WHERE correo = $1 AND activo = true', [email]);
+    const result = await db.query('SELECT * FROM admins WHERE correo = $1 AND activo IS NOT FALSE', [email]);
     const admin = result.rows[0];
     
     if (!admin || !admin.password_hash) {

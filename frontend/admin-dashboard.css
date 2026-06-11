@@ -42,6 +42,9 @@ body {
   line-height: 1.5;
 }
 
+/* Ensure hidden attribute works even with display overrides */
+[hidden] { display: none !important; }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
