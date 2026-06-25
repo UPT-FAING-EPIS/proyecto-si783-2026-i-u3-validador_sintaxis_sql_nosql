@@ -10,7 +10,7 @@ const validateRoutes = require('./routes/validate.routes');
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
 const { verifyToken, isAdmin } = require('./middleware/auth.middleware');
-const { updateActivity } = require('./middleware/activity.middleware');
+const { updateLastActivity } = require('./middleware/activity.middleware');
 
 // Crear aplicación Express
 const app = express();
@@ -22,6 +22,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Confiar en el proxy (Railway)
+app.set('trust proxy', true);
 
 // 2. Body parsers
 app.use(express.json({ limit: '10mb' }));
@@ -49,7 +52,7 @@ app.use((req, res, next) => {
 });
 
 // Middleware de actualización de actividad (solo si hay user en req)
-app.use(updateActivity);
+app.use(updateLastActivity);
 
 // Rutas de la API
 app.use('/api/auth', authRoutes);

@@ -6,13 +6,23 @@
 const { TokenTypes } = require('../lexer');
 
 const Engines = {
+  ANSI:       'SQL ANSI',
   MYSQL:      'MySQL',
+  MARIADB:    'MariaDB',
   POSTGRESQL: 'PostgreSQL',
   SQLITE:     'SQLite',
   SQLSERVER:  'SQL Server',
   ORACLE:     'Oracle'
 };
 
+const DIALECT_ENGINES = [
+  Engines.MYSQL,
+  Engines.MARIADB,
+  Engines.POSTGRESQL,
+  Engines.SQLITE,
+  Engines.SQLSERVER,
+  Engines.ORACLE
+];
 const ALL_ENGINES = Object.values(Engines);
 
 /*
@@ -21,16 +31,20 @@ const ALL_ENGINES = Object.values(Engines);
  */
 const TOKEN_SIGNALS = [
   // MySQL-specific
-  { pattern: 'AUTO_INCREMENT',  engines: [Engines.MYSQL], weight: 30 },
-  { pattern: 'ENGINE',          engines: [Engines.MYSQL], weight: 20, context: 'DDL' },
-  { pattern: 'SHOW',            engines: [Engines.MYSQL], weight: 15 },
-  { pattern: 'DESCRIBE',        engines: [Engines.MYSQL, Engines.ORACLE], weight: 10 },
-  { pattern: 'CURDATE',         engines: [Engines.MYSQL], weight: 20 },
-  { pattern: 'CURTIME',         engines: [Engines.MYSQL], weight: 20 },
-  { pattern: 'IFNULL',          engines: [Engines.MYSQL, Engines.SQLITE], weight: 15 },
-  { pattern: 'GROUP_CONCAT',    engines: [Engines.MYSQL], weight: 25 },
-  { pattern: 'LAST_INSERT_ID',  engines: [Engines.MYSQL], weight: 30 },
-  { pattern: 'UNIX_TIMESTAMP',  engines: [Engines.MYSQL], weight: 25 },
+  { pattern: 'AUTO_INCREMENT',  engines: [Engines.MYSQL, Engines.MARIADB], weight: 30 },
+  { pattern: 'ENGINE',          engines: [Engines.MYSQL, Engines.MARIADB], weight: 20, context: 'DDL' },
+  { pattern: 'SHOW',            engines: [Engines.MYSQL, Engines.MARIADB], weight: 15 },
+  { pattern: 'DESCRIBE',        engines: [Engines.MYSQL, Engines.MARIADB, Engines.ORACLE], weight: 10 },
+  { pattern: 'CURDATE',         engines: [Engines.MYSQL, Engines.MARIADB], weight: 20 },
+  { pattern: 'CURTIME',         engines: [Engines.MYSQL, Engines.MARIADB], weight: 20 },
+  { pattern: 'IFNULL',          engines: [Engines.MYSQL, Engines.MARIADB, Engines.SQLITE], weight: 15 },
+  { pattern: 'GROUP_CONCAT',    engines: [Engines.MYSQL, Engines.MARIADB], weight: 25 },
+  { pattern: 'LAST_INSERT_ID',  engines: [Engines.MYSQL, Engines.MARIADB], weight: 30 },
+  { pattern: 'UNIX_TIMESTAMP',  engines: [Engines.MYSQL, Engines.MARIADB], weight: 25 },
+  { pattern: 'USE',             engines: [Engines.MYSQL, Engines.MARIADB, Engines.SQLSERVER], weight: 35 },
+  { pattern: 'LOCK',            engines: [Engines.MYSQL, Engines.MARIADB], weight: 30 },
+  { pattern: 'UNLOCK',          engines: [Engines.MYSQL, Engines.MARIADB], weight: 30 },
+  { pattern: 'DELIMITER',       engines: [Engines.MYSQL, Engines.MARIADB], weight: 35 },
 
   // PostgreSQL-specific
   { pattern: 'ILIKE',           engines: [Engines.POSTGRESQL], weight: 30 },
@@ -46,7 +60,7 @@ const TOKEN_SIGNALS = [
   { pattern: 'NEWID',           engines: [Engines.SQLSERVER], weight: 30 },
   { pattern: 'SCOPE_IDENTITY',  engines: [Engines.SQLSERVER], weight: 30 },
   { pattern: 'GETDATE',         engines: [Engines.SQLSERVER], weight: 30 },
-  { pattern: 'GO',              engines: [Engines.SQLSERVER], weight: 10, context: 'standalone' },
+  { pattern: 'GO',              engines: [Engines.SQLSERVER], weight: 25, context: 'standalone' },
   { pattern: 'IDENTITY',        engines: [Engines.SQLSERVER], weight: 20 },
   { pattern: 'CHARINDEX',       engines: [Engines.SQLSERVER], weight: 20 },
 
@@ -56,7 +70,7 @@ const TOKEN_SIGNALS = [
   { pattern: 'SYSTIMESTAMP',    engines: [Engines.ORACLE], weight: 35 },
   { pattern: 'CONNECT',         engines: [Engines.ORACLE], weight: 25 },
   { pattern: 'PRIOR',           engines: [Engines.ORACLE], weight: 20 },
-  { pattern: 'DUAL',            engines: [Engines.ORACLE, Engines.MYSQL], weight: 15 },
+  { pattern: 'DUAL',            engines: [Engines.ORACLE, Engines.MYSQL, Engines.MARIADB], weight: 15 },
   { pattern: 'NVL',             engines: [Engines.ORACLE], weight: 25 },
   { pattern: 'NVL2',            engines: [Engines.ORACLE], weight: 30 },
   { pattern: 'LISTAGG',         engines: [Engines.ORACLE], weight: 30 },
@@ -85,14 +99,14 @@ const TYPE_SIGNALS = [
   { pattern: 'HIERARCHYID',       engines: [Engines.SQLSERVER], weight: 35 },
   { pattern: 'DATETIMEOFFSET',    engines: [Engines.SQLSERVER], weight: 30 },
   { pattern: 'DATETIME2',         engines: [Engines.SQLSERVER], weight: 30 },
-  { pattern: 'TINYTEXT',          engines: [Engines.MYSQL], weight: 20 },
-  { pattern: 'MEDIUMTEXT',        engines: [Engines.MYSQL], weight: 20 },
-  { pattern: 'LONGTEXT',          engines: [Engines.MYSQL], weight: 20 },
-  { pattern: 'ENUM',              engines: [Engines.MYSQL, Engines.POSTGRESQL], weight: 10 },
+  { pattern: 'TINYTEXT',          engines: [Engines.MYSQL, Engines.MARIADB], weight: 20 },
+  { pattern: 'MEDIUMTEXT',        engines: [Engines.MYSQL, Engines.MARIADB], weight: 20 },
+  { pattern: 'LONGTEXT',          engines: [Engines.MYSQL, Engines.MARIADB], weight: 20 },
+  { pattern: 'ENUM',              engines: [Engines.MYSQL, Engines.MARIADB, Engines.POSTGRESQL], weight: 10 },
 ];
 
 const TEXT_SIGNALS = [
-  { pattern: 'ON DUPLICATE KEY UPDATE', engines: [Engines.MYSQL], weight: 35 },
+  { pattern: 'ON DUPLICATE KEY UPDATE', engines: [Engines.MYSQL, Engines.MARIADB], weight: 35 },
   { pattern: 'ON CONFLICT',             engines: [Engines.POSTGRESQL, Engines.SQLITE], weight: 25 },
   { pattern: 'DO NOTHING',              engines: [Engines.POSTGRESQL, Engines.SQLITE], weight: 25 },
   { pattern: 'WITH (NOLOCK)',            engines: [Engines.SQLSERVER], weight: 40 },
@@ -102,7 +116,16 @@ const TEXT_SIGNALS = [
   { pattern: 'START WITH',              engines: [Engines.ORACLE], weight: 25 },
   { pattern: 'FETCH FIRST',             engines: [Engines.ORACLE, Engines.POSTGRESQL, Engines.SQLSERVER], weight: 15 },
   { pattern: 'WITHOUT ROWID',           engines: [Engines.SQLITE], weight: 35 },
-  { pattern: 'CHARACTER SET',           engines: [Engines.MYSQL], weight: 20 },
+  { pattern: 'CHARACTER SET',           engines: [Engines.MYSQL, Engines.MARIADB], weight: 20 },
+  { pattern: 'START TRANSACTION',       engines: [Engines.MYSQL, Engines.MARIADB, Engines.POSTGRESQL], weight: 20 },
+  { pattern: 'DECLARE @',               engines: [Engines.SQLSERVER], weight: 35 },
+  { pattern: 'DECLARE ',                engines: [Engines.ANSI, Engines.POSTGRESQL, Engines.SQLSERVER, Engines.ORACLE], weight: 8 },
+  { pattern: 'ROLLBACK TO SAVEPOINT',   engines: [Engines.MYSQL, Engines.MARIADB, Engines.POSTGRESQL, Engines.SQLITE], weight: 20 },
+  { pattern: 'RELEASE SAVEPOINT',       engines: [Engines.MYSQL, Engines.MARIADB, Engines.POSTGRESQL, Engines.SQLITE], weight: 20 },
+  { pattern: 'LOCK TABLES',             engines: [Engines.MYSQL, Engines.MARIADB], weight: 35 },
+  { pattern: 'UNLOCK TABLES',           engines: [Engines.MYSQL, Engines.MARIADB], weight: 35 },
+  { pattern: 'SET SEARCH_PATH',         engines: [Engines.POSTGRESQL], weight: 35 },
+  { pattern: 'SET @',                   engines: [Engines.SQLSERVER], weight: 35 },
 ];
 
 /**
@@ -111,8 +134,15 @@ const TEXT_SIGNALS = [
  * @param {string} queryText - Texto original de la consulta
  * @returns {{ engine: string, confidence: number, compatible: string[], incompatible: object[] }}
  */
+function stripSQLComments(text) {
+  return text
+    .replace(/\/\*![\s\S]*?\*\//g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/--[^\n\r]*/g, ' ');
+}
+
 function detectEngine(tokens, queryText) {
-  const upperQuery = queryText.toUpperCase();
+  const upperQuery = stripSQLComments(queryText).toUpperCase();
 
   const scores = {};
   ALL_ENGINES.forEach(e => { scores[e] = 0; });
@@ -128,7 +158,9 @@ function detectEngine(tokens, queryText) {
   const incompatibleReasons = {};
 
   const applySignal = (sig) => {
-    sig.engines.forEach(eng => { scores[eng] += sig.weight; });
+    sig.engines.forEach(eng => {
+      if (Object.prototype.hasOwnProperty.call(scores, eng)) scores[eng] += sig.weight;
+    });
     if (sig.weight >= 15) {
        for (const eng of ALL_ENGINES) {
          if (!sig.engines.includes(eng)) {
@@ -148,6 +180,9 @@ function detectEngine(tokens, queryText) {
   TOKEN_SIGNALS.forEach(sig => {
     if (tokenValues.has(sig.pattern)) applySignal(sig);
   });
+  if (tokenValues.has('USE')) {
+    scores[Engines.SQLSERVER] += 1;
+  }
 
   TYPE_SIGNALS.forEach(sig => {
     if (tokenValues.has(sig.pattern)) applySignal(sig);
@@ -158,7 +193,7 @@ function detectEngine(tokens, queryText) {
   });
 
   if (tokenValues.has('LIMIT')) {
-    applySignal({ pattern: 'LIMIT', engines: [Engines.MYSQL, Engines.POSTGRESQL, Engines.SQLITE], weight: 15 });
+    applySignal({ pattern: 'LIMIT', engines: [Engines.MYSQL, Engines.MARIADB, Engines.POSTGRESQL, Engines.SQLITE], weight: 15 });
   }
 
   let maxScore = 0;
@@ -172,7 +207,7 @@ function detectEngine(tokens, queryText) {
 
   if (maxScore === 0) {
     return {
-      engine: 'SQL Estándar ANSI',
+      engine: Engines.ANSI,
       confidence: 100,
       compatible: [...ALL_ENGINES],
       incompatible: []

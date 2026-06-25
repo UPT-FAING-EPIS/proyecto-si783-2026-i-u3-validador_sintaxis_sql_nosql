@@ -1,16 +1,24 @@
 const db = require('../config/db.config');
 const bcrypt = require('bcrypt');
+const { getClientIP } = require('../utils/ip.util');
 
 const getGeneralStats = async (req, res) => {
   try {
     // Total users
     const totalUsersResult = await db.query('SELECT COUNT(*) as total FROM users');
     
-    // Active users (last 10 min)
+    // Active users (last 5 min)
     const activeUsersResult = await db.query(`
       SELECT COUNT(*) as active 
       FROM users 
-      WHERE last_activity >= NOW() - INTERVAL '10 minutes'
+      WHERE last_activity IS NOT NULL AND last_activity > NOW() - INTERVAL '5 minutes'
+    `);
+
+    // Offline users
+    const offlineUsersResult = await db.query(`
+      SELECT COUNT(*) as offline 
+      FROM users 
+      WHERE last_activity <= NOW() - INTERVAL '5 minutes' OR last_activity IS NULL
     `);
 
     // Total admins
@@ -42,6 +50,7 @@ const getGeneralStats = async (req, res) => {
     res.json({
       totalUsers: parseInt(totalUsersResult.rows[0].total, 10),
       activeUsers: parseInt(activeUsersResult.rows[0].active, 10),
+      offlineUsers: parseInt(offlineUsersResult.rows[0].offline, 10),
       totalAdmins: parseInt(adminsResult.rows[0].total, 10),
       sqlValidations: parseInt(sqlValidationsResult.rows[0].total, 10),
       mongoValidations: parseInt(mongoValidationsResult.rows[0].total, 10),
@@ -58,9 +67,10 @@ const getGeneralStats = async (req, res) => {
 const getActiveUsers = async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT id, name, email, last_activity 
+      SELECT id, name, email, last_login, last_activity, 
+      CASE WHEN last_activity > NOW() - INTERVAL '5 minutes' THEN true ELSE false END AS online
       FROM users 
-      WHERE last_activity >= NOW() - INTERVAL '10 minutes'
+      WHERE last_activity > NOW() - INTERVAL '5 minutes'
       ORDER BY last_activity DESC
     `);
     res.json(result.rows);
@@ -135,7 +145,25 @@ const searchUserByEmail = async (req, res) => {
     if (!email) {
       return res.status(400).json({ error: 'Debe proporcionar un email para buscar' });
     }
-    const result = await db.query('SELECT id, name, email, role, last_login, last_activity, created_at FROM users WHERE email ILIKE $1', [`%${email}%`]);
+    const query = `
+      SELECT 
+          id, 
+          name, 
+          email, 
+          role, 
+          last_login, 
+          last_activity, 
+          created_at,
+          CASE 
+              WHEN last_activity IS NOT NULL 
+                   AND last_activity > NOW() - INTERVAL '5 minutes' 
+              THEN TRUE 
+              ELSE FALSE 
+          END AS online 
+      FROM users 
+      WHERE email ILIKE $1
+    `;
+    const result = await db.query(query, [`%${email}%`]);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: 'Error al buscar usuario' });
@@ -144,8 +172,41 @@ const searchUserByEmail = async (req, res) => {
 
 const getTotalUsers = async (req, res) => {
   try {
-    const result = await db.query('SELECT id, name, email, role, created_at, last_login, last_activity, is_online, activo FROM users ORDER BY created_at DESC');
-    res.json(result.rows);
+    const query = `
+      SELECT 
+          id, 
+          name, 
+          email, 
+          role, 
+          created_at, 
+          last_login, 
+          last_activity, 
+          activo,
+          CASE 
+              WHEN last_activity IS NOT NULL 
+                   AND last_activity > NOW() - INTERVAL '5 minutes' 
+              THEN TRUE 
+              ELSE FALSE 
+          END AS online 
+      FROM users 
+      ORDER BY created_at DESC
+    `;
+    const result = await db.query(query);
+    
+    const users = result.rows;
+    let onlineCount = 0;
+    let offlineCount = 0;
+    users.forEach(u => u.online ? onlineCount++ : offlineCount++);
+    
+    console.log('[DASHBOARD] Usuarios encontrados:', users.length);
+    console.log('[DASHBOARD] Usuarios online:', onlineCount);
+    console.log('[DASHBOARD] Usuarios offline:', offlineCount);
+    
+    if (users.length === 0) {
+      console.log('[DASHBOARD] Consulta SQL ejecutada:', query);
+    }
+    
+    res.json(users);
   } catch (err) {
     console.error('Error obteniendo usuarios:', err);
     res.status(500).json({ error: 'Error al obtener usuarios' });
@@ -178,7 +239,7 @@ const createAdmin = async (req, res) => {
       [nombre, correo, hashedPassword, rol || 'admin']
     );
 
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    const ipAddress = getClientIP(req);
     await db.query(
       'INSERT INTO audit_logs (usuario, accion, detalles, ip) VALUES ($1, $2, $3, $4)',
       [req.user.email, 'CREATE_ADMIN', `Administrador creado: ${correo}`, ipAddress]
@@ -210,7 +271,7 @@ const deactivateAdmin = async (req, res) => {
 
     await db.query('UPDATE admins SET activo = false WHERE id = $1', [id]);
     
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    const ipAddress = getClientIP(req);
     await db.query(
       'INSERT INTO audit_logs (usuario, accion, detalles, ip) VALUES ($1, $2, $3, $4)',
       [req.user.email, 'DEACTIVATE_ADMIN', `Administrador desactivado: ${target.rows[0].correo}`, ipAddress]
@@ -243,7 +304,7 @@ const deleteAdmin = async (req, res) => {
 
     await db.query('DELETE FROM admins WHERE id = $1', [id]);
     
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    const ipAddress = getClientIP(req);
     await db.query(
       'INSERT INTO audit_logs (usuario, accion, detalles, ip) VALUES ($1, $2, $3, $4)',
       [req.user.email, 'DELETE_ADMIN', `Administrador eliminado: ${target.rows[0].correo}`, ipAddress]
@@ -266,7 +327,7 @@ const deactivateUser = async (req, res) => {
     await db.query('UPDATE users SET activo = false WHERE id = $1', [id]);
     await db.query('DELETE FROM active_sessions WHERE user_id = $1', [id]);
 
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    const ipAddress = getClientIP(req);
     await db.query(
       'INSERT INTO audit_logs (usuario, accion, detalles, ip) VALUES ($1, $2, $3, $4)',
       [req.user.email, 'DEACTIVATE_USER', `Usuario desactivado: ${target.rows[0].email}`, ipAddress]
@@ -288,7 +349,7 @@ const reactivateAdmin = async (req, res) => {
 
     await db.query('UPDATE admins SET activo = true WHERE id = $1', [id]);
     
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    const ipAddress = getClientIP(req);
     await db.query(
       'INSERT INTO audit_logs (usuario, accion, detalles, ip) VALUES ($1, $2, $3, $4)',
       [req.user.email, 'REACTIVATE_ADMIN', `Administrador reactivado: ${target.rows[0].correo}`, ipAddress]
@@ -319,7 +380,7 @@ const updateAdminRole = async (req, res) => {
 
     await db.query('UPDATE admins SET rol = $1 WHERE id = $2', [rol, id]);
     
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    const ipAddress = getClientIP(req);
     await db.query(
       'INSERT INTO audit_logs (usuario, accion, detalles, ip) VALUES ($1, $2, $3, $4)',
       [req.user.email, 'UPDATE_ADMIN_ROLE', `Rol de ${target.rows[0].correo} cambiado a ${rol}`, ipAddress]
@@ -341,7 +402,7 @@ const deleteUser = async (req, res) => {
 
     await db.query('DELETE FROM users WHERE id = $1', [id]);
     
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    const ipAddress = getClientIP(req);
     await db.query(
       'INSERT INTO audit_logs (usuario, accion, detalles, ip) VALUES ($1, $2, $3, $4)',
       [req.user.email, 'DELETE_USER', `Usuario eliminado: ${target.rows[0].email}`, ipAddress]
@@ -363,7 +424,7 @@ const reactivateUser = async (req, res) => {
 
     await db.query('UPDATE users SET activo = true WHERE id = $1', [id]);
 
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    const ipAddress = getClientIP(req);
     await db.query(
       'INSERT INTO audit_logs (usuario, accion, detalles, ip) VALUES ($1, $2, $3, $4)',
       [req.user.email, 'REACTIVATE_USER', `Usuario reactivado: ${target.rows[0].email}`, ipAddress]

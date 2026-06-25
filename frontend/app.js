@@ -141,12 +141,9 @@ function registerSQLCompletions() {
 
 function getDefaultQuery(type) {
   if (type === 'sql') {
-    return '-- Escribe tu consulta SQL aquí\n-- Presiona Ctrl+Enter para validar\n\nSELECT *\nFROM usuarios\nWHERE edad > 18\nORDER BY nombre ASC;';
+    return 'SELECT *\nFROM usuarios\nWHERE edad > 18\nORDER BY nombre ASC;';
   }
-  return JSON.stringify({
-    find: 'usuarios',
-    filter: { activo: true, edad: { $gte: 18 } }
-  }, null, 2);
+  return 'db.usuarios.find({ activo: true, edad: { $gte: 18 } })';
 }
 
 async function doValidate() {
@@ -205,6 +202,85 @@ async function doValidate() {
    }
  }
 
+function normalizeIncompatible(item) {
+  if (typeof item === 'string') {
+    return { engine: item, reasons: [] };
+  }
+  return {
+    engine: item.engine || item.name || String(item),
+    reasons: item.reasons || []
+  };
+}
+
+function reasonText(reason) {
+  var map = {
+    RETURNING: 'La cláusula RETURNING no pertenece al subconjunto SQL ANSI y no está disponible en todos los motores.',
+    LIMIT: 'La cláusula LIMIT no es compatible con SQL Server ni Oracle clásico.',
+    TOP: 'TOP es una cláusula específica de SQL Server.',
+    NOLOCK: 'WITH (NOLOCK) es una pista específica de SQL Server.',
+    AUTO_INCREMENT: 'AUTO_INCREMENT es específico de MySQL.',
+    AUTOINCREMENT: 'AUTOINCREMENT es específico de SQLite.',
+    USE: 'La sentencia USE es válida en MySQL y SQL Server, pero no pertenece a SQL ANSI.',
+    ILIKE: 'ILIKE es específico de PostgreSQL.',
+    ROWNUM: 'ROWNUM es específico de Oracle.',
+    PRAGMA: 'PRAGMA es específico de SQLite.',
+    GO: 'GO es un separador de lotes específico de SQL Server.',
+    LOCK: 'LOCK TABLES es una sentencia específica de MySQL y MariaDB.',
+    UNLOCK: 'UNLOCK TABLES es una sentencia específica de MySQL y MariaDB.',
+    DELIMITER: 'DELIMITER es una directiva de scripts MySQL/MariaDB para cambiar el separador de sentencias.',
+    'LOCK TABLES': 'LOCK TABLES es una sentencia específica de MySQL y MariaDB.',
+    'UNLOCK TABLES': 'UNLOCK TABLES es una sentencia específica de MySQL y MariaDB.',
+    'DECLARE @': 'DECLARE con variables @ es específico de SQL Server.',
+    'START TRANSACTION': 'START TRANSACTION es propio de MySQL y PostgreSQL.',
+    'SET SEARCH_PATH': 'La sentencia SET search_path es específica de PostgreSQL.',
+    'SET @': 'SET @variable es sintaxis de variables de SQL Server.',
+    'Sintaxis SQL': 'La consulta usa gramática SQL, no sintaxis MongoDB.',
+    'Sintaxis MongoDB': 'La consulta utiliza sintaxis de MongoDB basada en db.coleccion.metodo().'
+  };
+  return map[reason] || ('Uso de: ' + reason);
+}
+
+function renderCompatibility(data) {
+  var main = data.dialect || (state.language === 'sql' ? 'SQL' : 'MongoDB');
+  var compatible = data.compatible && data.compatible.length ? data.compatible : [main];
+  var incompatible = (data.incompatible || []).map(normalizeIncompatible);
+  var html = '<div class="result-detail">';
+  html += '<div class="detail-row"><span>Motor detectado:</span><strong>' + escapeHtml(main) + '</strong></div>';
+  if (data.type) {
+    html += '<div class="detail-row"><span>Tipo:</span><strong>' + escapeHtml(data.type) + '</strong></div>';
+  }
+  if (data.collection) {
+    html += '<div class="detail-row"><span>Colección:</span><strong>' + escapeHtml(data.collection) + '</strong></div>';
+  }
+  html += '<div class="compat-block">';
+  html += '<h4>Compatibilidad</h4>';
+  html += '<div class="compat-main">✓ ' + escapeHtml(main) + '</div>';
+  html += '<div class="compat-subtitle">Motores compatibles:</div>';
+  html += '<ul class="compat-list">' + compatible.map(function (engine) {
+    return '<li>' + escapeHtml(engine) + '</li>';
+  }).join('') + '</ul>';
+  if (incompatible.length > 0) {
+    html += '<div class="compat-subtitle">Motores no compatibles:</div>';
+    html += '<ul class="compat-list muted">' + incompatible.map(function (item) {
+      return '<li>' + escapeHtml(item.engine) + '</li>';
+    }).join('') + '</ul>';
+
+    var reasons = [];
+    incompatible.forEach(function (item) {
+      (item.reasons || []).forEach(function (reason) {
+        var text = reasonText(reason);
+        if (reasons.indexOf(text) === -1) reasons.push(text);
+      });
+    });
+    if (reasons.length > 0) {
+      html += '<div class="compat-subtitle">Motivo:</div>';
+      html += '<div class="compat-reason">' + reasons.map(escapeHtml).join('<br>') + '</div>';
+    }
+  }
+  html += '</div></div>';
+  return html;
+}
+
 function showResults(data) {
   var empty = document.getElementById('results-empty');
   var validEl = document.getElementById('results-valid');
@@ -217,45 +293,18 @@ function showResults(data) {
 
   if (data.valid) {
     validEl.hidden = false;
-    document.getElementById('results-icon').textContent = '✅';
-    document.getElementById('results-title').childNodes[2].textContent = ' Resultados — Válido';
-    
-    if (data.dialect) {
-       let html = `Motor detectado: <strong>${data.dialect}</strong> ${data.confidence ? `(Confianza: ${data.confidence}%)` : ''}`;
-       if (data.compatible && data.compatible.length > 1) {
-         html += `<br>Compatible con: ${data.compatible.join(', ')}`;
-       }
-       meta.innerHTML = html;
-    } else {
-       meta.textContent = 'Sin errores';
-    }
+    document.getElementById('results-title').innerHTML = '<span id="results-icon" aria-hidden="true">✅</span> Resultados — Válido';
+    meta.textContent = data.confidence ? 'Confianza: ' + data.confidence + '%' : '';
 
     var sugList = document.getElementById('suggestions-valid');
-    sugList.innerHTML = '';
-    (data.suggestions || []).forEach(function (s) {
-      var div = document.createElement('div');
-      div.className = 'suggestion-item';
-      div.innerHTML = '<span class="suggestion-icon">💡</span><span>' + escapeHtml(s) + '</span>';
-      sugList.appendChild(div);
-    });
+    sugList.innerHTML = renderCompatibility(data);
   } else {
     invalidEl.hidden = false;
-    document.getElementById('results-icon').textContent = '🔴';
-    document.getElementById('results-title').childNodes[2].textContent = ' Resultados — Errores';
-    
-    if (data.dialect) {
-       let html = `Motor detectado: <strong>${data.dialect}</strong> ${data.confidence ? `(Confianza: ${data.confidence}%)` : ''}`;
-       if (data.compatible && data.compatible.length > 1) {
-         html += `<br>Compatible con: ${data.compatible.join(', ')}`;
-       }
-       if (!data.valid) html += ` - ${data.errors.length} error(es)`;
-       meta.innerHTML = html;
-    } else {
-       meta.textContent = data.errors.length + ' error(es)';
-    }
+    document.getElementById('results-title').innerHTML = '<span id="results-icon" aria-hidden="true">🔴</span> Resultados — Errores';
+    meta.textContent = (data.errors || []).length + ' error(es)';
 
     var errList = document.getElementById('errors-list');
-    errList.innerHTML = '';
+    errList.innerHTML = renderCompatibility(data);
     
     // Preparar marcadores para Monaco
     const markers = [];
@@ -272,10 +321,13 @@ function showResults(data) {
 
       let engineStr = data.dialect ? data.dialect : (state.language === 'sql' ? 'SQL' : 'MongoDB');
 
-      let html = `<div style="font-weight:bold;color:#f44747;margin-bottom:8px;">ERROR DE SINTAXIS</div>`;
+      let html = `<div style="font-weight:bold;color:#f44747;margin-bottom:8px;">Consulta inválida</div>`;
       html += `<div style="font-size:12px;margin-bottom:4px;"><strong>Motor detectado:</strong><br>${escapeHtml(engineStr)}</div>`;
       html += `<div style="font-size:12px;margin-bottom:4px;"><strong>Línea:</strong> ${err.line || 1}</div>`;
       html += `<div style="font-size:12px;margin-bottom:4px;"><strong>Columna:</strong> ${err.column || 1}</div>`;
+      if (err.position) {
+        html += `<div style="font-size:12px;margin-bottom:4px;"><strong>Posición:</strong><br>Carácter ${err.position}</div>`;
+      }
       
       if (err.operator) {
         html += `<div style="font-size:12px;margin-bottom:4px;"><strong>Operador afectado:</strong><br>${escapeHtml(err.operator)}</div>`;
@@ -521,12 +573,12 @@ function showLoading(show) {
 }
 
 function resetResults() {
-  document.getElementById('results-empty').hidden = false;
+  document.getElementById('results-empty').hidden = true;
   document.getElementById('results-valid').hidden = true;
   document.getElementById('results-invalid').hidden = true;
   document.getElementById('results-loading').hidden = true;
   document.getElementById('results-meta').textContent = '';
-  document.getElementById('results-icon').textContent = '🔎';
+  document.getElementById('results-title').innerHTML = '<span id="results-icon" aria-hidden="true">🔎</span> Resultados';
   setStatus('idle', 'Listo');
   if (state.editor) {
     monaco.editor.setModelMarkers(state.editor.getModel(), 'validator', []);
@@ -636,32 +688,97 @@ document.addEventListener('DOMContentLoaded', function () {
     fileInput.click();
   });
 
-  fileInput.addEventListener('change', function (e) {
+  fileInput.addEventListener('change', async function (e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = function (event) {
-      const content = event.target.result;
-      const ext = file.name.split('.').pop().toLowerCase();
-
-      if (ext === 'sql') {
-        switchLanguage('sql');
-        state.editor.setValue(content);
-        showToast('Archivo SQL cargado', 'success');
-      } else if (ext === 'json' || ext === 'nosql') {
-        switchLanguage('nosql');
-        state.editor.setValue(content);
-        showToast('Archivo MongoDB cargado', 'success');
-      } else {
+    const ext = file.name.split('.').pop().toLowerCase();
+    let type = 'sql';
+    if (ext === 'json' || ext === 'nosql') type = 'nosql';
+    else if (ext !== 'sql') {
         showToast('Extensión no soportada', 'error');
-      }
-      fileInput.value = '';
-    };
-    reader.onerror = function () {
-      showToast('Error al leer archivo', 'error');
-    };
-    reader.readAsText(file);
+        fileInput.value = '';
+        return;
+    }
+
+    if (file.size > 1024 * 1024) { // Mayor a 1MB
+        showToast('Archivo grande detectado. Iniciando análisis en streaming...', 'info');
+        switchLanguage(type);
+        state.editor.setValue('-- El archivo es muy grande para mostrarse en el editor.\\n-- Analizando en segundo plano...');
+        
+        setStatus('loading', 'Analizando... 0%');
+        showLoading(true);
+        state.isValidating = true;
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+        
+        try {
+            const response = await fetch(API_BASE + '/validate/file', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + sessionStorage.getItem('validator_token')
+                },
+                body: formData
+            });
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                
+                const lines = buffer.split('\n\n');
+                buffer = lines.pop(); // Mantener el último fragmento incompleto
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = JSON.parse(line.substring(6));
+                        if (data.type === 'progress') {
+                            setStatus('loading', `Analizando... ${data.percent}%`);
+                        } else if (data.type === 'result') {
+                            showResults(data.data);
+                            addToHistory('Validación de archivo grande: ' + file.name, data.data);
+                            if (data.data.valid) {
+                                setStatus('success', 'Sintaxis correcta');
+                                showToast('✅ Sintaxis correcta en archivo', 'success');
+                            } else {
+                                setStatus('error', data.data.errors.length + ' error(es)');
+                            }
+                        } else if (data.type === 'error') {
+                            setStatus('error', 'Error en análisis');
+                            showToast('Error: ' + data.message, 'error');
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            setStatus('error', 'Error de red');
+            showToast('Error al conectar con el servidor', 'error');
+        } finally {
+            state.isValidating = false;
+            showLoading(false);
+            fileInput.value = '';
+        }
+    } else {
+        // Archivo pequeño, leer normal
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const content = event.target.result;
+          switchLanguage(type);
+          state.editor.setValue(content);
+          showToast('Archivo cargado. Presione validar.', 'success');
+          fileInput.value = '';
+        };
+        reader.onerror = function () {
+          showToast('Error al leer archivo', 'error');
+        };
+        reader.readAsText(file);
+    }
   });
 
   document.getElementById('btn-clear-results').addEventListener('click', resetResults);

@@ -400,6 +400,8 @@ button.active-users-indicator:hover {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 100%; gap: 8px; color: var(--text-muted);
 }
+.results-empty[hidden], .results-loading[hidden] { display: none; }
+.results-empty { display: none; }
 .empty-icon { font-size: 28px; opacity: 0.5; }
 .empty-text { font-size: var(--font-sm); text-align: center; }
 .empty-hint { font-size: 11px; color: var(--text-muted); }
@@ -430,6 +432,62 @@ kbd { background: var(--bg-tertiary); border: 1px solid var(--border); border-ra
 .valid-icon { font-size: 20px; }
 .valid-title { display: block; color: var(--clr-success); font-weight: 700; font-size: var(--font-md); }
 .valid-subtitle { font-size: var(--font-sm); color: var(--text-secondary); }
+
+.result-detail {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: var(--font-sm);
+}
+.detail-row span { color: var(--text-secondary); }
+.detail-row strong { color: var(--text-primary); font-weight: 700; text-align: right; }
+.compat-block { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.compat-block h4 {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.compat-main {
+  color: var(--clr-success);
+  font-weight: 700;
+  font-size: var(--font-sm);
+  margin-bottom: 8px;
+}
+.compat-subtitle {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  margin: 8px 0 4px;
+}
+.compat-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+}
+.compat-list li::before {
+  content: "•";
+  color: var(--clr-success);
+  margin-right: 6px;
+}
+.compat-list.muted li::before { color: var(--clr-error); }
+.compat-reason {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
 
 /* Errores */
 .errors-heading, .suggestions-heading {

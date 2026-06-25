@@ -137,9 +137,11 @@ async function loadStats() {
     const s = await res.json();
     document.getElementById('stat-total-users').textContent = s.totalUsers ?? 0;
     document.getElementById('stat-admins').textContent = s.totalAdmins ?? 0;
+    document.getElementById('stat-active-users').textContent = s.activeUsers ?? 0;
+    document.getElementById('stat-sessions').textContent = s.sessions ?? 0;
+    document.getElementById('stat-total-validations').textContent = s.totalValidations ?? 0;
     document.getElementById('stat-sql-validations').textContent = s.sqlValidations ?? 0;
     document.getElementById('stat-mongo-validations').textContent = s.mongoValidations ?? 0;
-    document.getElementById('stat-sessions').textContent = s.sessions ?? 0;
     document.getElementById('stat-events').textContent = s.totalEvents ?? 0;
   } catch (err) {
     console.error('Error cargando stats:', err);
@@ -277,9 +279,7 @@ async function loadUsers() {
     empty.hidden = true;
     data.forEach(u => {
       const tr = document.createElement('tr');
-      const isOnline = u.is_online;
-      const statusClass = isOnline ? 'online' : 'offline';
-      const statusText = isOnline ? 'En línea' : 'Desconectado';
+      const statusSpan = `<span class="badge ${u.online ? 'badge-success' : 'badge-offline'}">${u.online ? 'Online' : 'Offline'}</span>`;
       const activoText = u.activo === false ? ' (Desactivado)' : '';
       
       let actionsHTML = '';
@@ -299,7 +299,7 @@ async function loadUsers() {
         <td style="font-weight:500;color:var(--adm-white);">${u.name || '—'}</td>
         <td>${u.email}</td>
         <td style="font-size:12px;color:var(--adm-text2);">${formatDate(u.last_login)}</td>
-        <td style="font-size:12px;color:var(--adm-text2);">${formatDate(u.created_at)}</td>
+        <td style="font-size:12px;color:var(--adm-text2);">${formatDate(u.last_activity)}</td>
         <td><span class="adm-status"><span class="adm-status-dot ${u.activo === false ? 'inactive' : statusClass}"></span>${statusText}${activoText}</span></td>
         ${actionsHTML}
       `;

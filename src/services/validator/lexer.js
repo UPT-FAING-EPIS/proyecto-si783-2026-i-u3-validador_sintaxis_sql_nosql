@@ -40,7 +40,7 @@ const SQL_KEYWORDS = new Set([
   'DELETE', 'MERGE', 'UPSERT', 'RETURNING', 'OUTPUT',
   // DDL
   'CREATE', 'TABLE', 'DROP', 'ALTER', 'TRUNCATE', 'INDEX', 'VIEW', 'TRIGGER',
-  'PROCEDURE', 'DATABASE', 'SCHEMA',
+  'PROCEDURE', 'FUNCTION', 'DATABASE', 'SCHEMA',
   // Joins
   'INNER', 'LEFT', 'RIGHT', 'FULL', 'CROSS', 'OUTER', 'JOIN', 'ON', 'USING',
   'NATURAL',
@@ -62,11 +62,13 @@ const SQL_KEYWORDS = new Set([
   // Motor-specific keywords (todos reconocidos como KEYWORD para el lexer)
   'TOP', 'GO', 'NOLOCK', 'IDENTITY', 'AUTO_INCREMENT', 'AUTOINCREMENT',
   'ENGINE', 'SHOW', 'DATABASES', 'TABLES', 'DESCRIBE', 'EXPLAIN',
+  'LOCK', 'UNLOCK', 'READ', 'WRITE', 'DELIMITER',
   'PRAGMA', 'WITHOUT', 'ROWID', 'STRICT',
   'START', 'CONNECT', 'PRIOR', 'DUAL', 'ROWNUM', 'MINUS', 'LEVEL',
   'SYSTIMESTAMP',
   'DO', 'NOTHING', 'CONFLICT', 'IGNORE', 'REPLACE',
   'IF', 'ELSE', 'BEGIN', 'DECLARE', 'EXEC', 'EXECUTE',
+  'COMMIT', 'ROLLBACK', 'TRANSACTION', 'SAVEPOINT', 'RELEASE', 'USE', 'CURSOR',
   'GRANT', 'REVOKE', 'DENY', 'TO',
   // Misc
   'SIMILAR', 'ESCAPE', 'CAST', 'TRUE', 'FALSE', 'UNKNOWN',
@@ -151,10 +153,10 @@ const SQL_DATA_TYPES = new Set([
    Clase Lexer
    ──────────────────────────────────────── */
 class Lexer {
-  constructor(input, isNoSQL = false) {
+  constructor(input, isNoSQL = false, startLine = 1) {
     this.input = input;
     this.pos = 0;
-    this.line = 1;
+    this.line = startLine;
     this.column = 1;
     this.isNoSQL = isNoSQL;
   }
@@ -265,7 +267,11 @@ class Lexer {
       // ─── Numbers ───
       if (/\d/.test(char)) {
         let num = '';
-        while (this.peek() !== null && /[\d.]/.test(this.peek())) num += this.advance();
+        while (this.peek() !== null && /\d/.test(this.peek())) num += this.advance();
+        if (this.peek() === '.' && /\d/.test(this.peek(1))) {
+          num += this.advance();
+          while (this.peek() !== null && /\d/.test(this.peek())) num += this.advance();
+        }
         // Scientific notation
         if (this.peek() === 'e' || this.peek() === 'E') {
           num += this.advance();
@@ -286,7 +292,7 @@ class Lexer {
       // ─── Colon (for named params :param) ───
       if (char === ':') {
         this.advance();
-        if (this.peek() !== null && /[a-zA-Z_]/.test(this.peek())) {
+        if (!this.isNoSQL && this.peek() !== null && /[a-zA-Z_]/.test(this.peek())) {
           let name = ':';
           while (this.peek() !== null && /[a-zA-Z0-9_]/.test(this.peek())) name += this.advance();
           tokens.push(new Token(TokenTypes.IDENTIFIER, name, startLine, startCol));
@@ -322,7 +328,7 @@ class Lexer {
       }
 
       // ─── Punctuation ───
-      if (/[(),.;{}]/.test(char)) {
+      if (/[(),.;{}\[\]]/.test(char)) {
         this.advance();
         tokens.push(new Token(TokenTypes.PUNCTUATION, char, startLine, startCol));
         continue;

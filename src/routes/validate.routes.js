@@ -8,9 +8,13 @@ const express = require('express');
 const router = express.Router();
 const {
   validateQuery,
+  validateFile,
   healthCheck,
   getExamples
 } = require('../controllers/validation.controller');
+
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
 /**
  * POST /api/validate
@@ -18,6 +22,13 @@ const {
  * Body: { type: 'sql' | 'nosql', query: string }
  */
 router.post('/validate', validateQuery);
+
+/**
+ * POST /api/validate/file
+ * Valida un archivo completo de SQL/NoSQL en streaming
+ * Body: form-data (file: File, type: string)
+ */
+router.post('/validate/file', upload.single('file'), validateFile);
 
 /**
  * GET /api/health
