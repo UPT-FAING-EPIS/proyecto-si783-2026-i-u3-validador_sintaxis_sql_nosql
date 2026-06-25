@@ -274,18 +274,24 @@ async function loadUsers() {
     const res = await apiFetch('/admin/users');
     if (!res) return;
     const data = await res.json();
+    const users = Array.isArray(data) ? data : [];
     tbody.innerHTML = '';
-    if (!data.length) { empty.hidden = false; return; }
+    if (!users.length) {
+      empty.hidden = false;
+      empty.textContent = data && data.error ? data.error : 'No existen registros disponibles';
+      return;
+    }
     empty.hidden = true;
-    data.forEach(u => {
+    users.forEach(u => {
       const tr = document.createElement('tr');
-      const statusSpan = `<span class="badge ${u.online ? 'badge-success' : 'badge-offline'}">${u.online ? 'Online' : 'Offline'}</span>`;
-      const activoText = u.activo === false ? ' (Desactivado)' : '';
+      const isInactive = u.activo === false;
+      const statusClass = isInactive ? 'inactive' : (u.online ? 'online' : 'offline');
+      const statusText = isInactive ? 'Desactivado' : (u.online ? 'Online' : 'Offline');
       
       let actionsHTML = '';
       if (isSuperAdmin()) {
-        const toggleAction = u.activo !== false ? 'Desactivar' : 'Reactivar';
-        const toggleMethod = u.activo !== false ? 'deactivate' : 'reactivate';
+        const toggleAction = isInactive ? 'Reactivar' : 'Desactivar';
+        const toggleMethod = isInactive ? 'reactivate' : 'deactivate';
         
         actionsHTML = `
           <td>
@@ -300,7 +306,7 @@ async function loadUsers() {
         <td>${u.email}</td>
         <td style="font-size:12px;color:var(--adm-text2);">${formatDate(u.last_login)}</td>
         <td style="font-size:12px;color:var(--adm-text2);">${formatDate(u.last_activity)}</td>
-        <td><span class="adm-status"><span class="adm-status-dot ${u.activo === false ? 'inactive' : statusClass}"></span>${statusText}${activoText}</span></td>
+        <td><span class="adm-status"><span class="adm-status-dot ${statusClass}"></span>${statusText}</span></td>
         ${actionsHTML}
       `;
       tbody.appendChild(tr);
