@@ -59,6 +59,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', verifyToken, isAdmin, adminRoutes); // Protegemos el panel de administración
 app.use('/api', validateRoutes);
 
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 // Servir frontend
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendPath, { maxAge: 0, etag: true }));

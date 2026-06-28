@@ -1,0 +1,36 @@
+project_name = "sql-validator"
+environment  = "prod"
+aws_region   = "us-east-1"
+
+app_port       = 3000
+container_port = 3000
+image_name     = "sql-validator"
+image_tag      = "latest"
+cpu            = 256
+memory         = 512
+desired_count  = 1
+
+log_retention_days = 14
+target_group_health_check_path = "/health"
+
+public_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24"]
+
+# No guardes secretos reales en este archivo.
+# Completa estos valores en terraform.tfvars, nunca en el ejemplo.
+node_env       = "production"
+port           = "3000"
+database_url   = "postgresql://usuario:password@host:5432/validator_db"
+jwt_secret     = "CAMBIAR_POR_UN_SECRET"
+admin_email    = "admin@example.com"
+admin_password = "CAMBIAR_PASSWORD"
+admin_name     = "Administrador"
+
+# Alternativa solo si NO usas DATABASE_URL:
+# db_host     = "example-postgres-host"
+# db_port     = "5432"
+# db_name     = "validator_db"
+# db_user     = "validator"
+# db_password = "CAMBIAR_PASSWORD_DB"
+
+# Variables adicionales futuras, si la app las incorpora.
+env_vars = {}

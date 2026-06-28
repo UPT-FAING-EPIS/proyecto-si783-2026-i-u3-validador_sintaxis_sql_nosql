@@ -6,6 +6,9 @@ package-lock.json
 .env
 .env.local
 .env.production
+.env.*
+!.env.example
+!**/.env.example
 
 # Logs
 logs/
@@ -29,3 +32,32 @@ build/
 # Temporal
 tmp/
 temp/
+
+# Terraform
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/terraform.tfvars
+**/terraform.tfvars.json
+!**/terraform.tfvars.example
+**/tfplan
+**/*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Credenciales y llaves
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# Docker temporal
+.docker/

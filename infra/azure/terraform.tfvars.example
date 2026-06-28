@@ -1,0 +1,35 @@
+project_name = "sql-validator"
+environment  = "prod"
+region       = "eastus"
+
+app_port     = 3000
+image_name   = "sql-validator"
+image_tag    = "latest"
+cpu          = 0.5
+memory       = 1.0
+min_replicas = 1
+max_replicas = 2
+
+acr_sku            = "Basic"
+log_retention_days = 30
+
+# No guardes secretos reales en este archivo.
+# Para producción, usa secretos de CI/CD, Azure Key Vault o variables protegidas.
+env_vars = {
+  NODE_ENV = "production"
+  PORT     = "3000"
+
+  # La app exige DATABASE_URL cuando NODE_ENV=production.
+  # DATABASE_URL    = "postgresql://user:password@host:5432/validator_db"
+  # JWT_SECRET      = "change-me"
+  # ADMIN_EMAIL     = "admin@example.com"
+  # ADMIN_PASSWORD  = "change-me"
+  # ADMIN_NAME      = "Administrador"
+
+  # Alternativa para desarrollo con host/puerto separados:
+  # DB_HOST     = "example-postgres-host"
+  # DB_PORT     = "5432"
+  # DB_NAME     = "validator_db"
+  # DB_USER     = "validator"
+  # DB_PASSWORD = "change-me"
+}

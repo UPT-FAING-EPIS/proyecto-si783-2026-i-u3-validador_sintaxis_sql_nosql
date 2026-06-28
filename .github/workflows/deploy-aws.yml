@@ -1,0 +1,115 @@
+name: Deploy AWS
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Run terraform apply"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      image_tag:
+        description: "Docker image tag"
+        required: true
+        default: "latest"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      IMAGE_NAME: sql-validator
+      TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
+      TF_VAR_image_tag: ${{ inputs.image_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials with OIDC
+        if: ${{ env.AWS_ROLE_TO_ASSUME != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS credentials with access keys
+        if: ${{ env.AWS_ROLE_TO_ASSUME == '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: infra/aws
+        run: terraform init
+
+      - name: Terraform fmt
+        working-directory: infra/aws
+        run: terraform fmt -check
+
+      - name: Terraform validate
+        working-directory: infra/aws
+        run: terraform validate
+
+      - name: Terraform plan
+        working-directory: infra/aws
+        run: terraform plan -out=tfplan
+
+      - name: Bootstrap ECR repository
+        if: ${{ inputs.apply == 'true' }}
+        working-directory: infra/aws
+        run: terraform apply -auto-approve -target=aws_ecr_repository.app
+
+      - name: Read ECR output
+        if: ${{ inputs.apply == 'true' }}
+        id: registry
+        working-directory: infra/aws
+        run: |
+          echo "ecr_repository_url=$(terraform output -raw ecr_repository_url)" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        if: ${{ inputs.apply == 'true' }}
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        if: ${{ inputs.apply == 'true' }}
+        run: |
+          docker build -t "$IMAGE_NAME:${{ inputs.image_tag }}" .
+          docker tag "$IMAGE_NAME:${{ inputs.image_tag }}" "${{ steps.registry.outputs.ecr_repository_url }}:${{ inputs.image_tag }}"
+          docker push "${{ steps.registry.outputs.ecr_repository_url }}:${{ inputs.image_tag }}"
+
+      - name: Terraform apply full infrastructure
+        if: ${{ inputs.apply == 'true' }}
+        working-directory: infra/aws
+        run: terraform apply -auto-approve
+
+      - name: Read ECS outputs
+        if: ${{ inputs.apply == 'true' }}
+        id: ecs
+        working-directory: infra/aws
+        run: |
+          echo "ecs_cluster_name=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+          echo "ecs_service_name=$(terraform output -raw ecs_service_name)" >> "$GITHUB_OUTPUT"
+
+      - name: Force ECS redeploy
+        if: ${{ inputs.apply == 'true' }}
+        run: |
+          aws ecs update-service \
+            --cluster "${{ steps.ecs.outputs.ecs_cluster_name }}" \
+            --service "${{ steps.ecs.outputs.ecs_service_name }}" \
+            --force-new-deployment \
+            --region "$AWS_REGION"

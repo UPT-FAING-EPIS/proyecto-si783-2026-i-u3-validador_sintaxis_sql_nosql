@@ -1,0 +1,114 @@
+name: Deploy Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Run terraform apply"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      image_tag:
+        description: "Docker image tag"
+        required: true
+        default: "latest"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      IMAGE_NAME: sql-validator
+      TF_VAR_image_tag: ${{ inputs.image_tag }}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login with OIDC
+        if: ${{ env.ARM_CLIENT_ID != '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Azure login with credentials JSON
+        if: ${{ env.ARM_CLIENT_ID == '' }}
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: infra/azure
+        run: terraform init
+
+      - name: Terraform fmt
+        working-directory: infra/azure
+        run: terraform fmt -check
+
+      - name: Terraform validate
+        working-directory: infra/azure
+        run: terraform validate
+
+      - name: Terraform plan
+        working-directory: infra/azure
+        run: terraform plan -out=tfplan
+
+      - name: Bootstrap Resource Group and ACR
+        if: ${{ inputs.apply == 'true' }}
+        working-directory: infra/azure
+        run: terraform apply -auto-approve -target=azurerm_resource_group.main -target=azurerm_container_registry.app
+
+      - name: Read ACR outputs
+        if: ${{ inputs.apply == 'true' }}
+        id: registry
+        working-directory: infra/azure
+        run: |
+          echo "acr_login_server=$(terraform output -raw acr_login_server)" >> "$GITHUB_OUTPUT"
+          echo "acr_name=$(terraform output -raw acr_name)" >> "$GITHUB_OUTPUT"
+
+      - name: Login to ACR
+        if: ${{ inputs.apply == 'true' }}
+        run: az acr login --name "${{ steps.registry.outputs.acr_name }}"
+
+      - name: Build and push Docker image
+        if: ${{ inputs.apply == 'true' }}
+        run: |
+          docker build -t "$IMAGE_NAME:${{ inputs.image_tag }}" .
+          docker tag "$IMAGE_NAME:${{ inputs.image_tag }}" "${{ steps.registry.outputs.acr_login_server }}/$IMAGE_NAME:${{ inputs.image_tag }}"
+          docker push "${{ steps.registry.outputs.acr_login_server }}/$IMAGE_NAME:${{ inputs.image_tag }}"
+
+      - name: Terraform apply full infrastructure
+        if: ${{ inputs.apply == 'true' }}
+        working-directory: infra/azure
+        run: terraform apply -auto-approve
+
+      - name: Read Container App outputs
+        if: ${{ inputs.apply == 'true' }}
+        id: app
+        working-directory: infra/azure
+        run: |
+          echo "resource_group_name=$(terraform output -raw resource_group_name)" >> "$GITHUB_OUTPUT"
+          echo "container_app_name=$(terraform output -raw container_app_name)" >> "$GITHUB_OUTPUT"
+
+      - name: Update Container App
+        if: ${{ inputs.apply == 'true' }}
+        run: |
+          az containerapp update \
+            --name "${{ steps.app.outputs.container_app_name }}" \
+            --resource-group "${{ steps.app.outputs.resource_group_name }}" \
+            --image "${{ steps.registry.outputs.acr_login_server }}/$IMAGE_NAME:${{ inputs.image_tag }}"
