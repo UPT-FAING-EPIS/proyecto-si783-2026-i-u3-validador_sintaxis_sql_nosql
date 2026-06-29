@@ -1,50 +1,89 @@
-# SQL/NoSQL Syntax Validator ⚡
+# SQL/NoSQL Syntax Validator
 
-Herramienta web para validar consultas **SQL** y **MongoDB (NoSQL)** con editor Monaco, resaltado de errores y sugerencias inteligentes.
+Aplicacion web para validar consultas SQL y MongoDB/NoSQL. El proyecto usa un servidor Node.js con Express que expone la API y sirve el frontend estatico desde la misma aplicacion.
 
-## 🚀 Instalación y Ejecución
+## Estado Actual
 
-### 1. Instalar dependencias
+- Despliegue existente: Railway con Docker.
+- Despliegue profesional agregado: AWS con Terraform, ECR, ECS Fargate, ALB y CloudWatch Logs.
+- Frontend: archivos estaticos en `frontend/`.
+- Backend/API: Express en `src/`.
+- Puerto: `PORT`, con valor por defecto `3000`.
+- Health checks: `GET /health` y `GET /api/health`.
+
+Railway no fue eliminado ni modificado de forma destructiva. El `Dockerfile` y el comando `npm start` siguen siendo compatibles.
+
+## Requisitos
+
+- Node.js >= 18
+- npm
+- Docker
+- Terraform >= 1.5, solo para despliegue AWS/Azure
+- AWS CLI configurado, solo para despliegue AWS
+
+## Instalacion Local
+
 ```bash
 npm install
-```
-
-### 2. Ejecutar el servidor
-```bash
 npm start
 ```
 
-### 3. Abrir en el navegador
-```
+Abrir:
+
+```text
 http://localhost:3000
 ```
 
-### Desarrollo con auto-reload
+Modo desarrollo:
+
 ```bash
 npm run dev
 ```
 
-## 📁 Estructura
+## Docker Local
 
+```bash
+docker build -t sql-validator .
+docker run -p 3000:3000 -e NODE_ENV=development -e PORT=3000 sql-validator
 ```
-├── backend/
-│   ├── server.js                  # Servidor Express
-│   ├── routes/validateRoutes.js   # Rutas de la API
-│   └── controllers/validatorController.js  # Lógica de validación
+
+Verificar:
+
+```bash
+curl http://localhost:3000/health
+```
+
+## Estructura
+
+```text
+.
+├── src/
+│   ├── app.js
+│   ├── server.js
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── routes/
+│   └── services/
 ├── frontend/
-│   ├── index.html                 # Interfaz principal
-│   ├── styles.css                 # Estilos VS Code theme
-│   └── app.js                    # Lógica del frontend
-├── package.json
+├── infra/
+│   ├── aws/
+│   └── azure/
+├── .github/workflows/
 ├── Dockerfile
+├── docker-compose.yml
+├── package.json
 └── README.md
 ```
 
-## 🔌 API REST
+## API
 
 ### `POST /api/validate`
 
-**Request:**
+Valida una consulta SQL o MongoDB.
+
+Request:
+
 ```json
 {
   "type": "sql",
@@ -52,110 +91,37 @@ npm run dev
 }
 ```
 
-**Response (válida):**
+Response valida:
+
 ```json
 {
   "valid": true,
   "errors": [],
-  "suggestions": ["✅ Tu consulta SQL tiene una estructura correcta."]
+  "suggestions": ["Tu consulta SQL tiene una estructura correcta."]
 }
 ```
 
-**Response (inválida):**
+### `GET /health`
+
+Health check simple para Docker, ECS y balanceadores.
+
 ```json
 {
-  "valid": false,
-  "errors": [{ "line": 1, "message": "Error de sintaxis..." }],
-  "suggestions": ["Las consultas SELECT requieren una cláusula FROM."]
+  "status": "ok"
 }
 ```
 
-### `GET /api/health` — Estado del servidor
-### `GET /api/examples` — Ejemplos de consultas
+### `GET /api/health`
 
-## ✨ Características
+Health check detallado de la API.
 
-- 🖊️ Editor Monaco (el mismo de VS Code)
-- 🎯 Validación SQL con node-sql-parser
-- 🍃 Validación MongoDB con reglas personalizadas
-- 💡 Sugerencias inteligentes
-- 📋 Historial de validaciones
-- 🌙/☀️ Tema oscuro y claro
-- ⌨️ Atajos de teclado (Ctrl+Enter)
-- 📊 Estadísticas de uso
-- 📖 Ejemplos precargados
+### `GET /api/examples`
 
-## 🐳 Docker
+Devuelve ejemplos de consultas SQL y MongoDB.
 
-```bash
-docker build -t sql-validator .
-docker run -p 3000:3000 sql-validator
-```
+## Variables De Entorno
 
-## 📦 Dependencias
-
-- **express** — Servidor web
-- **cors** — Manejo de CORS
-- **node-sql-parser** — Parser SQL
-- **nodemon** — Auto-reload (dev)
-
-## Despliegue profesional
-
-El despliegue actual en Railway se mantiene intacto: no se elimina el `Dockerfile`, no se cambia el comando `npm start` y la app sigue escuchando `process.env.PORT || 3000`, compatible con Railway.
-
-### Analisis del proyecto
-
-- Framework: Node.js con Express.
-- Frontend: archivos estaticos en `frontend/`, servidos por el mismo servidor Express.
-- Backend/API: rutas bajo `/api`, incluyendo `POST /api/validate`, `GET /api/health` y alias `GET /health`.
-- Puerto: `PORT` por variable de entorno, con valor por defecto `3000`.
-- Build: no hay build frontend separado; la imagen Docker instala dependencias y copia el codigo.
-- Start: `npm start`, que ejecuta `node src/server.js`.
-- Dockerfile: usa `node:18-alpine`, `npm install --production`, `EXPOSE 3000` y `CMD ["npm", "start"]`.
-- docker-compose: existe e incluye la app y PostgreSQL local para desarrollo.
-- Base de datos: PostgreSQL opcional para funciones de autenticacion/auditoria. En produccion la app exige `DATABASE_URL` si `NODE_ENV=production`.
-- Railway: la app ya usa `PORT` y `DATABASE_URL`, patrones habituales de Railway. No se encontro archivo `railway.toml`.
-
-### Estructura agregada
-
-```text
-infra/
-  aws/
-    main.tf
-    variables.tf
-    outputs.tf
-    terraform.tfvars.example
-    README.md
-  azure/
-    main.tf
-    variables.tf
-    outputs.tf
-    terraform.tfvars.example
-    README.md
-.github/
-  workflows/
-    deploy-aws.yml
-    deploy-azure.yml
-```
-
-### Variables requeridas
-
-Variables comunes de Terraform:
-
-- `project_name`
-- `environment`
-- `aws_region` en AWS
-- `app_port`
-- `container_port` en AWS
-- `image_name`
-- `image_tag`
-- `cpu`
-- `memory`
-- `desired_count` en AWS
-- `min_replicas` y `max_replicas` en Azure
-- `env_vars`
-
-Variables detectadas en la app:
+Variables detectadas en la aplicacion:
 
 - `PORT`
 - `NODE_ENV`
@@ -170,9 +136,33 @@ Variables detectadas en la app:
 - `ADMIN_PASSWORD`
 - `ADMIN_NAME`
 
-No hardcodees secretos en Terraform. Usa `terraform.tfvars` local, secretos del proveedor cloud o secretos de CI/CD. Los archivos reales `terraform.tfvars`, `.env`, estados Terraform y llaves privadas estan ignorados por Git.
+Para `NODE_ENV=production`, la aplicacion exige `DATABASE_URL`. Si no se configura, el contenedor falla con:
 
-### AWS
+```text
+DATABASE_URL no configurada en produccion
+```
+
+En AWS, estos valores se configuran en:
+
+```text
+infra/aws/terraform.tfvars
+```
+
+Ese archivo no debe subirse a Git.
+
+Ejemplo:
+
+```hcl
+node_env       = "production"
+port           = "3000"
+database_url   = "postgresql://usuario:password@host:5432/validator_db"
+jwt_secret     = "CAMBIAR_POR_UN_SECRET"
+admin_email    = "admin@example.com"
+admin_password = "CAMBIAR_PASSWORD"
+admin_name     = "Administrador"
+```
+
+## Despliegue AWS
 
 Arquitectura:
 
@@ -180,11 +170,35 @@ Arquitectura:
 Docker image -> Amazon ECR -> ECS Fargate -> Application Load Balancer -> CloudWatch Logs -> URL publica
 ```
 
-Comandos principales:
+Recursos Terraform:
+
+- VPC
+- Subnets publicas
+- Internet Gateway
+- Route Table
+- Security Groups
+- ECR Repository
+- ECS Cluster
+- ECS Task Definition
+- ECS Service Fargate
+- Application Load Balancer
+- Target Group
+- HTTP Listener
+- CloudWatch Log Group
+- IAM Role para ECS Task Execution
+
+### 1. Configurar Variables
 
 ```bash
 cd infra/aws
 cp terraform.tfvars.example terraform.tfvars
+```
+
+Editar `terraform.tfvars` con valores reales. No escribir secretos reales en `terraform.tfvars.example`.
+
+### 2. Crear ECR
+
+```bash
 terraform init
 terraform fmt
 terraform validate
@@ -192,45 +206,74 @@ terraform plan
 terraform apply -target=aws_ecr_repository.app
 ```
 
-Construir y subir imagen:
+### 3. Construir Y Subir Imagen
+
+Desde la raiz del proyecto:
 
 ```bash
-cd ../..
 docker build -t sql-validator .
+```
+
+Login en ECR:
+
+```bash
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account_id>.dkr.ecr.us-east-1.amazonaws.com
+```
+
+Tag y push:
+
+```bash
 docker tag sql-validator:latest <ecr_repository_url>:latest
 docker push <ecr_repository_url>:latest
 ```
 
-Crear o actualizar infraestructura completa:
+### 4. Crear Infraestructura Completa
 
 ```bash
 cd infra/aws
 terraform apply
-aws ecs update-service --cluster <cluster> --service <service> --force-new-deployment --region us-east-1
+```
+
+Forzar nuevo despliegue:
+
+```bash
+aws ecs update-service \
+  --cluster sql-validator-prod-cluster \
+  --service sql-validator-prod-service \
+  --force-new-deployment \
+  --region us-east-1
+```
+
+### 5. Abrir URL Publica
+
+```bash
+terraform output -raw public_url
 ```
 
 Verificar:
 
 ```bash
-curl http://<load_balancer_dns>/health
+curl $(terraform output -raw public_url)/health
 ```
 
-Logs:
+### Logs AWS
 
 ```bash
 aws logs tail /ecs/sql-validator-prod --region us-east-1 --follow
 ```
 
-Destruir:
+### Destruir AWS
 
 ```bash
+cd infra/aws
 terraform destroy
 ```
 
-### Azure
+## Despliegue Azure
 
-Arquitectura:
+La estructura base para Azure esta en `infra/azure/`.
+
+Arquitectura prevista:
 
 ```text
 Docker image -> Azure Container Registry -> Azure Container Apps -> URL publica HTTPS
@@ -245,90 +288,84 @@ terraform init
 terraform fmt
 terraform validate
 terraform plan
-terraform apply -target=azurerm_resource_group.main -target=azurerm_container_registry.app
+terraform apply
 ```
 
-Construir y subir imagen:
+Subir imagen:
 
 ```bash
-cd ../..
 docker build -t sql-validator .
 az acr login --name <acr_name>
 docker tag sql-validator:latest <acr_login_server>/sql-validator:latest
 docker push <acr_login_server>/sql-validator:latest
 ```
 
-Crear o actualizar infraestructura completa:
+Actualizar Container App:
 
 ```bash
-cd infra/azure
-terraform apply
 az containerapp update \
   --name <container_app_name> \
   --resource-group <resource_group_name> \
   --image <acr_login_server>/sql-validator:latest
 ```
 
-Verificar:
+## GitHub Actions
 
-```bash
-curl https://<container_app_fqdn>/api/health
-```
+Workflows disponibles:
 
-Logs:
-
-```bash
-az containerapp logs show \
-  --name <container_app_name> \
-  --resource-group <resource_group_name> \
-  --follow
-```
-
-Destruir:
-
-```bash
-terraform destroy
-```
-
-### GitHub Actions
-
-Se agregan workflows opcionales en `.github/workflows/`.
+- `.github/workflows/deploy-aws.yml`
+- `.github/workflows/deploy-azure.yml`
 
 Secretos sugeridos para AWS:
 
 - `AWS_REGION`
 - `AWS_ACCOUNT_ID`
-- `AWS_ROLE_TO_ASSUME`, recomendado con OIDC
-- `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`, alternativa si no usas OIDC
+- `AWS_ROLE_TO_ASSUME`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
 
 Secretos sugeridos para Azure:
 
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
-- `AZURE_CREDENTIALS`, alternativa JSON si no usas federated credentials
-- `AZURE_RESOURCE_GROUP`, si decides extender el workflow
+- `AZURE_CREDENTIALS`
 
-Los workflows ejecutan `terraform plan` por defecto. El `apply` queda condicionado al input manual `apply=true`.
+## Seguridad
 
-### Backend remoto de Terraform
+No subir al repositorio:
 
-Los archivos `main.tf` incluyen backends remotos comentados:
+- `.env`
+- `.env.*`
+- `terraform.tfvars`
+- `terraform.tfstate`
+- `terraform.tfstate.backup`
+- `.terraform/`
+- claves privadas
+- tokens
+- credenciales reales
 
-- AWS: S3 para estado y DynamoDB para lock.
-- Azure: Storage Account y Blob Container para `tfstate`.
+Los archivos de ejemplo permitidos son:
 
-Primero crea esos recursos de estado remoto, luego descomenta el bloque correspondiente y ejecuta:
+- `terraform.tfvars.example`
+- `.env.example`
 
-```bash
-terraform init -migrate-state
-```
+## Costos
 
-### Costos y seguridad
+AWS ALB, ECS Fargate, CloudWatch, Azure Container Apps, ACR y Log Analytics pueden generar costos. Para entornos de prueba, ejecutar `terraform destroy` al terminar.
 
-- AWS ALB, ECS Fargate, CloudWatch, ACR, Container Apps y Log Analytics pueden generar costos.
-- Usa recursos pequenos para pruebas: `cpu`, `memory`, `desired_count`, `min_replicas` y `max_replicas` conservadores.
-- En Azure puedes evaluar `min_replicas = 0` para pruebas si aceptas arranque en frio.
-- Ejecuta `terraform destroy` cuando termines ambientes temporales.
-- No subas credenciales, tokens, `.env`, `terraform.tfvars`, estados Terraform ni claves privadas.
-- Para produccion, usa gestores de secretos para `DATABASE_URL`, `JWT_SECRET` y `ADMIN_PASSWORD`.
+## Validacion Realizada
+
+- `docker build -t sql-validator .`
+- `GET /health` en contenedor local.
+- `GET /api/health` en contenedor local.
+- `terraform fmt`
+- `terraform validate`
+- `terraform plan`
+
+## Compatibilidad
+
+- Railway: compatible.
+- Docker local: compatible.
+- AWS ECS Fargate: compatible.
+- Azure Container Apps: estructura preparada.
