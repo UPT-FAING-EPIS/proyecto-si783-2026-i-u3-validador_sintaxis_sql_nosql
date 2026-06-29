@@ -1,0 +1,141 @@
+openapi: 3.0.3
+info:
+  title: SQL Multi-Engine Validation Skill API
+  version: 1.0.0
+  description: API REST para validar, diagnosticar y analizar consultas SQL/MongoDB desde sistemas externos.
+servers:
+  - url: http://localhost:4000
+    description: Local
+tags:
+  - name: Health
+  - name: Metadata
+  - name: Validation
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Estado del servicio
+      responses:
+        "200":
+          description: Servicio disponible
+  /api/v1/engines:
+    get:
+      tags: [Metadata]
+      summary: Motores soportados
+      responses:
+        "200":
+          description: Lista de motores
+  /api/v1/capabilities:
+    get:
+      tags: [Metadata]
+      summary: Capacidades publicadas por la Skill
+      responses:
+        "200":
+          description: Capacidades
+  /api/v1/detect-engine:
+    post:
+      tags: [Validation]
+      summary: Detecta el motor probable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeRequest"
+      responses:
+        "200":
+          description: Motor detectado
+  /api/v1/validate:
+    post:
+      tags: [Validation]
+      summary: Valida una consulta SQL o MongoDB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRequest"
+      responses:
+        "200":
+          description: Resultado de validacion
+  /api/v1/diagnostic:
+    post:
+      tags: [Validation]
+      summary: Devuelve diagnosticos para editores, CLIs e IDEs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRequest"
+      responses:
+        "200":
+          description: Diagnosticos
+  /api/v1/compatibility:
+    post:
+      tags: [Validation]
+      summary: Calcula motores compatibles y no compatibles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeRequest"
+      responses:
+        "200":
+          description: Compatibilidad
+  /api/v1/fix:
+    post:
+      tags: [Validation]
+      summary: Aplica correcciones simples conocidas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRequest"
+      responses:
+        "200":
+          description: Resultado de correccion
+  /api/v1/format:
+    post:
+      tags: [Validation]
+      summary: Formatea SQL de forma basica
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRequest"
+      responses:
+        "200":
+          description: Consulta formateada
+  /api/v1/lint:
+    post:
+      tags: [Validation]
+      summary: Advierte buenas practicas y riesgos comunes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRequest"
+      responses:
+        "200":
+          description: Advertencias
+components:
+  schemas:
+    CodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+    ValidationRequest:
+      allOf:
+        - $ref: "#/components/schemas/CodeRequest"
+        - type: object
+          properties:
+            engine:
+              type: string
+              enum: [auto, sql-ansi, mysql, mariadb, postgresql, sqlserver, oracle, sqlite, mongodb]

@@ -1,0 +1,424 @@
+openapi: 3.0.3
+info:
+  title: SQL Multi-Engine Validation Skill API
+  version: 1.0.0
+  description: API REST para validar, diagnosticar y analizar consultas SQL/MongoDB desde sistemas externos.
+servers:
+  - url: http://localhost:4000
+    description: Local
+tags:
+  - name: Health
+  - name: Metadata
+  - name: Validation
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Estado del servicio
+      responses:
+        "200":
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/v1/engines:
+    get:
+      tags: [Metadata]
+      summary: Motores soportados
+      responses:
+        "200":
+          description: Lista de motores
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnginesResponse"
+  /api/v1/capabilities:
+    get:
+      tags: [Metadata]
+      summary: Capacidades publicadas por la Skill
+      responses:
+        "200":
+          description: Capacidades
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilitiesResponse"
+  /api/v1/detect-engine:
+    post:
+      tags: [Validation]
+      summary: Detecta el motor probable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeRequest"
+      responses:
+        "200":
+          description: Motor detectado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetectEngineResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/v1/validate:
+    post:
+      tags: [Validation]
+      summary: Valida una consulta SQL o MongoDB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRequest"
+      responses:
+        "200":
+          description: Resultado de validacion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/v1/diagnostic:
+    post:
+      tags: [Validation]
+      summary: Devuelve diagnosticos para editores, CLIs e IDEs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRequest"
+      responses:
+        "200":
+          description: Diagnosticos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiagnosticResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/compatibility:
+    post:
+      tags: [Validation]
+      summary: Calcula motores compatibles y no compatibles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeRequest"
+      responses:
+        "200":
+          description: Compatibilidad
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompatibilityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/fix:
+    post:
+      tags: [Validation]
+      summary: Aplica correcciones simples conocidas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRequest"
+      responses:
+        "200":
+          description: Resultado de correccion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FixResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/format:
+    post:
+      tags: [Validation]
+      summary: Formatea SQL de forma basica
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRequest"
+      responses:
+        "200":
+          description: Consulta formateada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormatResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/lint:
+    post:
+      tags: [Validation]
+      summary: Advierte buenas practicas y riesgos comunes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationRequest"
+      responses:
+        "200":
+          description: Advertencias
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LintResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+components:
+  responses:
+    BadRequest:
+      description: Solicitud invalida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    RateLimited:
+      description: Rate limit excedido
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    Engine:
+      type: string
+      enum: [auto, sql-ansi, mysql, mariadb, postgresql, sqlserver, oracle, sqlite, mongodb]
+    HealthResponse:
+      type: object
+      required: [status, service, version]
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: sql-validation-skill
+        version:
+          type: string
+          example: 1.0.0
+    EnginesResponse:
+      type: object
+      properties:
+        engines:
+          type: array
+          items:
+            type: string
+          example: [sql-ansi, mysql, mariadb, postgresql, sqlserver, oracle, sqlite, mongodb]
+    CapabilitiesResponse:
+      type: object
+      properties:
+        capabilities:
+          type: object
+          properties:
+            validation:
+              type: boolean
+            diagnostics:
+              type: boolean
+            engineDetection:
+              type: boolean
+            compatibility:
+              type: boolean
+            fix:
+              type: boolean
+            format:
+              type: boolean
+            lint:
+              type: boolean
+    CodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          example: db.empleados.find({});
+    ValidationRequest:
+      allOf:
+        - $ref: "#/components/schemas/CodeRequest"
+        - type: object
+          properties:
+            engine:
+              $ref: "#/components/schemas/Engine"
+    ValidationError:
+      type: object
+      properties:
+        line:
+          type: integer
+          example: 1
+        column:
+          type: integer
+          example: 8
+        token:
+          type: string
+          example: TABL
+        message:
+          type: string
+          example: TABL no es valido. Se esperaba TABLE.
+        suggestion:
+          type: string
+          nullable: true
+          example: Reemplace TABL por TABLE.
+        severity:
+          type: string
+          enum: [error]
+        code:
+          type: string
+          example: SQL_SYNTAX_ERROR
+    Warning:
+      type: object
+      properties:
+        line:
+          type: integer
+        column:
+          type: integer
+        message:
+          type: string
+        severity:
+          type: string
+          example: warning
+        code:
+          type: string
+    ValidationResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        engineRequested:
+          type: string
+        engineDetected:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationError"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Warning"
+        compatibleEngines:
+          type: array
+          items:
+            type: string
+        analysisTimeMs:
+          type: integer
+    DiagnosticResponse:
+      type: object
+      properties:
+        diagnostics:
+          type: array
+          items:
+            type: object
+            properties:
+              range:
+                type: object
+                properties:
+                  start:
+                    type: object
+                    properties:
+                      line:
+                        type: integer
+                      character:
+                        type: integer
+                  end:
+                    type: object
+                    properties:
+                      line:
+                        type: integer
+                      character:
+                        type: integer
+              severity:
+                type: string
+              code:
+                type: string
+              source:
+                type: string
+              message:
+                type: string
+              suggestion:
+                type: string
+                nullable: true
+    DetectEngineResponse:
+      type: object
+      properties:
+        engineDetected:
+          type: string
+          example: mongodb
+        confidence:
+          type: number
+          example: 0.95
+        signals:
+          type: array
+          items:
+            type: string
+    CompatibilityResponse:
+      type: object
+      properties:
+        compatibleEngines:
+          type: array
+          items:
+            type: string
+        notCompatibleEngines:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+    FixResponse:
+      type: object
+      properties:
+        fixed:
+          type: boolean
+        fixedCode:
+          type: string
+        changes:
+          type: array
+          items:
+            type: object
+            properties:
+              from:
+                type: string
+              to:
+                type: string
+              line:
+                type: integer
+              column:
+                type: integer
+    FormatResponse:
+      type: object
+      properties:
+        formatted:
+          type: boolean
+        code:
+          type: string
+    LintResponse:
+      type: object
+      properties:
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Warning"
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
