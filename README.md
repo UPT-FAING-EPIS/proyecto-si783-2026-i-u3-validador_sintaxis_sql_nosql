@@ -369,3 +369,4 @@ AWS ALB, ECS Fargate, CloudWatch, Azure Container Apps, ACR y Log Analytics pued
 - Docker local: compatible.
 - AWS ECS Fargate: compatible.
 - Azure Container Apps: estructura preparada.
+|
