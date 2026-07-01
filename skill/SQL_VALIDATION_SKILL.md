@@ -2,22 +2,24 @@
 
 ## Descripcion
 
-Skill reutilizable para validar, diagnosticar y analizar consultas SQL/MongoDB desde sistemas externos mediante una API REST publica.
+Skill reutilizable para validar, diagnosticar y analizar consultas SQL/MongoDB desde sistemas externos mediante una API REST publica o desde terminales Linux mediante un CLI local.
 
-Esta Skill expone el core del validador multimotor del proyecto como una capacidad consumible por CLIs, extensiones, plugins, bots, aplicaciones web y sistemas academicos, sin depender de la interfaz web principal.
+Esta Skill expone el core del validador multimotor del proyecto como una capacidad consumible por la web, la API publica y un CLI Linux instalable, sin depender exclusivamente de la interfaz web principal.
+
+El core real permanece en `src`. `skill/service` publica la capacidad como API REST y `packages/cli` empaqueta una copia del core para validar localmente sin depender de una API remota.
 
 ## Objetivo
 
-Permitir que otros proyectos envien consultas SQL o MongoDB y reciban una respuesta estructurada con validacion, diagnosticos, deteccion de motor, compatibilidad, correcciones simples, formateo basico y advertencias de buenas practicas.
+Permitir que otros proyectos o terminales Linux validen consultas SQL o MongoDB y reciban una respuesta estructurada con validacion, diagnosticos, deteccion de motor, compatibilidad, correcciones simples, formateo basico y advertencias de buenas practicas.
 
 ## Casos de uso
 
-- Validacion en tiempo real desde un editor o extension de Visual Studio Code.
-- Validacion previa a ejecutar consultas en un CLI.
+- Validacion previa a ejecutar consultas en un CLI Linux local.
+- Uso desde consola Linux con el comando `sqlcheck`.
 - Revision automatica de entregas academicas.
 - Integracion con bots que reciben consultas y devuelven diagnosticos.
 - Servicios web que necesitan validar SQL/MongoDB sin montar la web principal.
-- Plugins que requieren una API estable y versionada.
+- Sistemas que requieren una API estable y versionada.
 
 ## Entradas
 
@@ -110,6 +112,21 @@ Para editores, `/api/v1/diagnostic` devuelve rangos:
 ```
 
 ## Ejemplos de integracion
+
+Metodos disponibles:
+
+```text
+Core de validacion en src
+        |
+        v
+Skill: capacidad de validar SQL/MongoDB
+        |
+        v
+Metodos de acceso
+   |-- Frontend Web
+   |-- API REST publica
+   `-- CLI Linux local
+```
 
 ### Validacion HTTP
 

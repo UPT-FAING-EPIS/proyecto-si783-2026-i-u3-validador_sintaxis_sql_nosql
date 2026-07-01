@@ -144,6 +144,27 @@
           </div>
         </div>
       </section>
+
+      <!-- Integraciones -->
+      <section class="sidebar-section integrations-section" aria-labelledby="integrations-heading">
+        <h2 class="section-title" id="integrations-heading">
+          <span class="section-icon" aria-hidden="true">🔌</span>
+          Integraciones
+        </h2>
+        <p class="integrations-text">
+          Usa la Skill SQL/MongoDB desde la API publica o instalala como CLI local en Linux.
+        </p>
+        <div class="integration-list" aria-label="Métodos de acceso disponibles">
+          <button class="integration-item integration-button" type="button" data-integration="api">
+            <strong>API REST</strong>
+            <span>Endpoint publico desplegado para integrar sistemas HTTP.</span>
+          </button>
+          <button class="integration-item integration-button" type="button" data-integration="cli">
+            <strong>CLI Linux local</strong>
+            <span>Instala `sqlcheck` con el core incluido, sin depender de red.</span>
+          </button>
+        </div>
+      </section>
     </aside>
 
     <!-- PANEL CENTRAL: Editor + Resultados -->
@@ -284,6 +305,19 @@
           <button class="example-tab" id="ex-tab-nosql" role="tab" data-type="nosql">MongoDB</button>
         </div>
         <div class="examples-list" id="examples-list" role="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Integraciones -->
+  <div class="modal-overlay" id="modal-integrations" role="dialog" aria-modal="true" aria-labelledby="integration-modal-title" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="integration-modal-title">Integracion</h3>
+        <button class="btn-icon modal-close" id="integration-modal-close" aria-label="Cerrar modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="integration-modal-content" id="integration-modal-content"></div>
       </div>
     </div>
   </div>

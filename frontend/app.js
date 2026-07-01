@@ -490,6 +490,43 @@ function showExamplesModal() {
   renderExamples(state.language);
 }
 
+function showIntegrationModal(type) {
+  var modal = document.getElementById('modal-integrations');
+  var title = document.getElementById('integration-modal-title');
+  var content = document.getElementById('integration-modal-content');
+  var apiUrl = 'https://wonderful-benevolence-production-ebaf.up.railway.app';
+
+  if (type === 'api') {
+    title.textContent = 'API REST publica';
+    content.innerHTML =
+      '<p>La API publica expone la Skill para sistemas externos por HTTP.</p>' +
+      '<pre><code>' + escapeHtml(apiUrl) + '</code></pre>' +
+      '<div class="integration-actions">' +
+        '<a class="integration-action" href="' + apiUrl + '/health" target="_blank" rel="noopener noreferrer">Abrir /health</a>' +
+        '<a class="integration-action" href="' + apiUrl + '/api/v1/engines" target="_blank" rel="noopener noreferrer">Abrir /api/v1/engines</a>' +
+        '<a class="integration-action" href="' + apiUrl + '/docs" target="_blank" rel="noopener noreferrer">Abrir docs</a>' +
+      '</div>' +
+      '<pre><code>' + escapeHtml('curl -X POST ' + apiUrl + '/api/v1/validate \\\n  -H "Content-Type: application/json" \\\n  -d \'{"engine":"auto","code":"SELECT * FORM usuarios;"}\'') + '</code></pre>';
+  } else {
+    title.textContent = 'CLI Linux local';
+    content.innerHTML =
+      '<p>Instala <code>sqlcheck</code> como herramienta local. El paquete incluye el core de validacion, por eso no necesita apuntar a una API remota.</p>' +
+      '<div class="integration-actions">' +
+        '<a class="integration-action" href="/downloads/sqlcheck-linux.tar.gz">Descargar .tar.gz</a>' +
+        '<a class="integration-action" href="/downloads/sqlcheck_1.0.0_amd64.deb">Descargar .deb</a>' +
+        '<a class="integration-action" href="/downloads/sqlcheck-1.0.0.x86_64.rpm">Descargar .rpm</a>' +
+      '</div>' +
+      '<pre><code>' + escapeHtml('sudo dpkg -i sqlcheck_1.0.0_amd64.deb\nsqlcheck validate "SELECT * FROM empleados;"\nsqlcheck validate "SELECT * FORM empleados;"') + '</code></pre>' +
+      '<pre><code>' + escapeHtml('sudo dnf install ./sqlcheck-1.0.0.x86_64.rpm\nsqlcheck --version') + '</code></pre>';
+  }
+
+  modal.hidden = false;
+}
+
+function hideIntegrationModal() {
+  document.getElementById('modal-integrations').hidden = true;
+}
+
 function renderExamples(type) {
   var list = document.getElementById('examples-list');
   list.innerHTML = '';
@@ -675,6 +712,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
   document.getElementById('btn-example').addEventListener('click', showExamplesModal);
+  document.querySelectorAll('[data-integration]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      showIntegrationModal(this.dataset.integration);
+    });
+  });
 
   document.getElementById('btn-copy').addEventListener('click', function () {
     navigator.clipboard.writeText(state.editor.getValue()).then(function () {
@@ -805,6 +847,10 @@ document.getElementById('language-select').addEventListener('change', function (
   document.getElementById('modal-examples').addEventListener('click', function (e) {
     if (e.target === this) this.hidden = true;
   });
+  document.getElementById('integration-modal-close').addEventListener('click', hideIntegrationModal);
+  document.getElementById('modal-integrations').addEventListener('click', function (e) {
+    if (e.target === this) this.hidden = true;
+  });
   document.querySelectorAll('.example-tab').forEach(function (tab) {
     tab.addEventListener('click', function () { renderExamples(this.dataset.type); });
   });
@@ -822,6 +868,8 @@ document.getElementById('language-select').addEventListener('change', function (
     if (e.key === 'Escape') {
       const modalEx = document.getElementById('modal-examples');
       if (modalEx && !modalEx.hidden) modalEx.hidden = true;
+      const modalIntegrations = document.getElementById('modal-integrations');
+      if (modalIntegrations && !modalIntegrations.hidden) modalIntegrations.hidden = true;
     }
   });
 });

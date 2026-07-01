@@ -2,19 +2,48 @@
 
 Servicio REST independiente para consumir el validador multimotor SQL/MongoDB desde otros proyectos sin abrir la web principal.
 
+La Skill es la capacidad reutilizable de validar SQL/MongoDB. El core real sigue en `src`; `skill/service` expone esa capacidad mediante API REST y el CLI Linux instala una copia del core para validar localmente sin depender de una API remota.
+
 ## Que resuelve
 
-La web actual sigue existiendo, pero otros sistemas necesitan validar consultas desde una URL publica. Esta Skill convierte el core del validador en una API reutilizable para CLIs, extensiones, plugins, bots, aplicaciones web y sistemas academicos.
+La web actual sigue existiendo, pero otros sistemas necesitan validar consultas desde una URL publica o desde terminales Linux sin red. Esta Skill mantiene una API reutilizable y un CLI local instalable.
 
 ## Arquitectura
 
 - `skill/SQL_VALIDATION_SKILL.md`: definicion de la capacidad reutilizable.
 - `skill/openapi.yaml`: contrato OpenAPI principal.
+- `skill/openapi.yml`: alias del contrato para documentacion y descargas.
 - `skill/examples/`: ejemplos de consumo.
+- `skill/docs/`: guias de acceso, CLI, demo y publicacion.
 - `skill/service/`: servicio Express independiente.
 - `skill/service/src/lib/skill-core.adapter.js`: adaptador fino hacia el core existente en `src/services/validation.service.js`.
+- `packages/cli`: CLI Linux `sqlcheck` con core local empaquetado.
 
 La Skill no depende de controladores, autenticacion, base de datos ni frontend de la web principal.
+
+## Metodos de acceso
+
+```text
+Core de validacion en src
+        |
+        v
+Skill: capacidad de validar SQL/MongoDB
+        |
+        v
+Metodos de acceso
+   |-- Frontend Web
+   |-- API REST publica
+   `-- CLI Linux local
+```
+
+La web es solo uno de los canales disponibles. La API publica sirve integraciones HTTP y el CLI Linux valida localmente dentro del entorno donde se instala.
+
+## Documentacion nueva
+
+- `skill/docs/access-methods.md`
+- `skill/docs/cli-usage.md`
+- `skill/docs/demo-guide.md`
+- `skill/docs/publishing-integrations.md`
 
 ## Ejecutar localmente
 

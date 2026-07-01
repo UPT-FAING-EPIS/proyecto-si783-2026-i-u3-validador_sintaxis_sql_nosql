@@ -1,0 +1,23 @@
+{
+  "name": "sqlcheck",
+  "version": "1.0.0",
+  "description": "CLI Linux local para validar SQL/MongoDB desde consola sin depender de una API remota.",
+  "license": "MIT",
+  "bin": {
+    "sqlcheck": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "examples"
+  ],
+  "scripts": {
+    "build": "node scripts/build.js",
+    "package:tar": "npm run build && node scripts/package-tar.js",
+    "package:deb": "npm run build && node scripts/package-deb.js",
+    "package:rpm": "npm run build && node scripts/package-rpm.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
