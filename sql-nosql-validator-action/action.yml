@@ -1,0 +1,35 @@
+name: 'SQL/NoSQL Syntax Validator'
+description: 'Valida la sintaxis de archivos SQL y MongoDB/NoSQL en tu repositorio. Sin servidor requerido.'
+author: 'gianfranco-arocutipa'
+
+inputs:
+  path:
+    description: 'Directorio raíz donde buscar archivos (ej: "src/db" o "." para todo el repo)'
+    required: false
+    default: '.'
+  extension:
+    description: 'Extensión de archivos a validar'
+    required: false
+    default: '.sql'
+  fail-on-error:
+    description: 'Falla el workflow si hay errores de sintaxis (true/false)'
+    required: false
+    default: 'true'
+  type:
+    description: 'Tipo de validación: "sql", "nosql" o "auto"'
+    required: false
+    default: 'auto'
+
+outputs:
+  error-count:
+    description: 'Número total de errores encontrados'
+  file-count:
+    description: 'Número de archivos validados'
+
+runs:
+  using: 'node20'
+  main: 'index.js'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
