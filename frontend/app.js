@@ -505,6 +505,7 @@ function showIntegrationModal(type) {
         '<a class="integration-action" href="' + apiUrl + '/health" target="_blank" rel="noopener noreferrer">Abrir /health</a>' +
         '<a class="integration-action" href="' + apiUrl + '/api/v1/engines" target="_blank" rel="noopener noreferrer">Abrir /api/v1/engines</a>' +
         '<a class="integration-action" href="' + apiUrl + '/docs" target="_blank" rel="noopener noreferrer">Abrir docs</a>' +
+        '<a class="integration-action" href="/skill.md" download="skill.md">Descargar Skill</a>' +
       '</div>' +
       '<pre><code>' + escapeHtml('curl -X POST ' + apiUrl + '/api/v1/validate \\\n  -H "Content-Type: application/json" \\\n  -d \'{"engine":"auto","code":"SELECT * FORM usuarios;"}\'') + '</code></pre>';
   } else {

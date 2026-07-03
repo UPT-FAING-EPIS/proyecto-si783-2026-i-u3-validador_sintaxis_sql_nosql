@@ -355,14 +355,18 @@ button.active-users-indicator:hover {
   gap: 6px;
 }
 .integration-item {
+  display: block;
   width: 100%;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 7px 8px;
   text-align: left;
+  text-decoration: none;
+  color: inherit;
 }
-.integration-button:hover { background: var(--bg-hover); border-color: var(--clr-accent); }
+.integration-button:hover,
+.integration-download:hover { background: var(--bg-hover); border-color: var(--clr-accent); }
 .integration-item strong {
   display: block;
   color: var(--text-primary);

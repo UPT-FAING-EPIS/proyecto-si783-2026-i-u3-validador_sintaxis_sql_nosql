@@ -4,8 +4,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://URL_PUBLICA',
-  timeout: 5000,
+  baseURL: 'https://wonderful-benevolence-production-ebaf.up.railway.app',
+  timeout: 8000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -27,5 +27,14 @@ export async function getDiagnostics(code, engine = 'auto') {
   });
 
   return data.diagnostics;
+}
+
+export async function lintSql(code, engine = 'auto') {
+  const { data } = await api.post('/api/v1/lint', {
+    engine,
+    code
+  });
+
+  return data.warnings;
 }
 ```

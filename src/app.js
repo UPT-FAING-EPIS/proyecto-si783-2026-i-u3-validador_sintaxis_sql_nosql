@@ -63,6 +63,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/skill.md', (req, res) => {
+  res.download(path.join(__dirname, '..', 'skill', 'skill.md'), 'skill.md');
+});
+
 // Servir frontend
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendPath, { maxAge: 0, etag: true }));

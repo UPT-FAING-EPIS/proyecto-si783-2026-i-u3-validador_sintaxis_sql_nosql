@@ -4,8 +4,10 @@ info:
   version: 1.0.0
   description: API REST para validar, diagnosticar y analizar consultas SQL/MongoDB desde sistemas externos.
 servers:
+  - url: https://wonderful-benevolence-production-ebaf.up.railway.app
+    description: Skill/API publica
   - url: http://localhost:4000
-    description: Local
+    description: Desarrollo local
 tags:
   - name: Health
   - name: Metadata

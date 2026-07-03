@@ -22,7 +22,7 @@ const fs = require('node:fs/promises');
 
 async function validateFile(path, engine = 'auto') {
   const code = await fs.readFile(path, 'utf8');
-  const response = await fetch('https://URL_PUBLICA/api/v1/validate', {
+  const response = await fetch('https://wonderful-benevolence-production-ebaf.up.railway.app/api/v1/validate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ engine, code })

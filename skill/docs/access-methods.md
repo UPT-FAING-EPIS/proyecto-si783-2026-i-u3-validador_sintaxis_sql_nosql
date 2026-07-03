@@ -39,6 +39,8 @@ Endpoints principales:
 - `GET /api/v1/capabilities`
 - `POST /api/v1/validate`
 - `POST /api/v1/diagnostic`
+- `POST /api/v1/detect-engine`
+- `POST /api/v1/compatibility`
 - `POST /api/v1/fix`
 - `POST /api/v1/format`
 - `POST /api/v1/lint`

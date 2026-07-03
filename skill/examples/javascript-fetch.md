@@ -2,7 +2,7 @@
 
 ```js
 async function validateSql(code) {
-  const response = await fetch('https://URL_PUBLICA/api/v1/validate', {
+  const response = await fetch('https://wonderful-benevolence-production-ebaf.up.railway.app/api/v1/validate', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -29,7 +29,7 @@ let timer;
 function validateAfterTyping(code) {
   clearTimeout(timer);
   timer = setTimeout(async () => {
-    const response = await fetch('https://URL_PUBLICA/api/v1/diagnostic', {
+    const response = await fetch('https://wonderful-benevolence-production-ebaf.up.railway.app/api/v1/diagnostic', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ engine: 'auto', code })
