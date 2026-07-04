@@ -57,6 +57,23 @@ Modo desarrollo:
 npm run dev
 ```
 
+## Ejecutar pruebas automatizadas
+
+El proyecto usa Jest y Supertest desde la raiz para pruebas unitarias del validador y pruebas de integracion de la Skill/API.
+
+```bash
+npm test
+npm run test:unit
+npm run test:api
+npm run test:coverage
+```
+
+El reporte HTML de cobertura se genera en:
+
+```text
+coverage/lcov-report/index.html
+```
+
 Health checks locales:
 
 ```bash

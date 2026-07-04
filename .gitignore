@@ -1,6 +1,7 @@
 # Dependencias
 node_modules/
-package-lock.json
+**/package-lock.json
+!/package-lock.json
 
 # Variables de entorno
 .env
@@ -28,6 +29,7 @@ Thumbs.db
 # Build outputs (si se agregan en el futuro)
 dist/
 build/
+coverage/
 
 # Temporal
 tmp/
