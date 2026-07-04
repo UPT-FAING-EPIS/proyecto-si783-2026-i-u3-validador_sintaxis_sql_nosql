@@ -71,6 +71,7 @@ jobs:
           if [ ! -f snyk-results.json ]; then
             echo '{"vulnerabilities":[],"ok":true,"summary":"Snyk no configurado (falta SNYK_TOKEN) o sin hallazgos."}' > snyk-results.json
           fi
+          mkdir -p public/security/snyk
           npx snyk-to-html -i snyk-results.json -o public/security/snyk/index.html
 
       - uses: actions/upload-artifact@v4
