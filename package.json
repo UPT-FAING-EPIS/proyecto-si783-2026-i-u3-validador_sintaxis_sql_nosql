@@ -10,7 +10,11 @@
     "test": "jest --runInBand",
     "test:coverage": "jest --coverage --runInBand",
     "test:unit": "jest tests/unit --runInBand",
-    "test:api": "jest tests/api --runInBand"
+    "test:api": "jest tests/api --runInBand",
+    "test:mutation": "stryker run",
+    "test:mutation:summary": "node scripts/mutation-summary.js",
+    "test:bdd": "cucumber-js",
+    "test:bdd:summary": "node scripts/bdd-summary.js"
   },
   "keywords": [
     "sql",
@@ -38,7 +42,12 @@
     "pg": "^8.21.0"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^11.2.0",
+    "@stryker-mutator/core": "^8.7.1",
     "jest": "^30.4.2",
-    "nodemon": "^3.0.2"
+    "multiple-cucumber-html-reporter": "^4.0.0",
+    "nodemon": "^3.0.2",
+    "snyk-to-html": "^3.7.6",
+    "supertest": "^7.1.1"
   }
 }

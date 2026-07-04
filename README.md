@@ -26,6 +26,276 @@ Validador multimotor para consultas SQL y MongoDB. El proyecto incluye una web p
 - Docker/Terraform: Dockerfile y `docker-compose.yml` para ejecucion local; plantillas Terraform en `infra/aws` e `infra/azure` para despliegues cloud.
 - Integraciones externas: la API puede conectarse con agentes, apps educativas, apps de auditoria, editores de codigo, bots y validadores previos a ejecucion.
 
+## Diagramas
+
+### Casos de uso
+
+```mermaid
+flowchart LR
+    actorUser(("Usuario"))
+    actorAdmin(("Administrador"))
+    actorAgent(("Agente IA / CLI / Editor"))
+
+    subgraph UC_Web["Web principal"]
+        ucValidate("Validar consulta SQL/NoSQL")
+        ucUploadFile("Validar archivo completo")
+        ucExamples("Ver ejemplos de consultas")
+        ucLogin("Iniciar sesion")
+    end
+
+    subgraph UC_Admin["Panel administrativo"]
+        ucDashboard("Ver dashboard de actividad")
+        ucAudit("Consultar logs de auditoria")
+    end
+
+    subgraph UC_Skill["Skill / API publica"]
+        ucApiValidate("POST /api/v1/validate")
+        ucApiDiagnostic("POST /api/v1/diagnostic")
+        ucApiFix("POST /api/v1/fix")
+        ucApiFormat("POST /api/v1/format")
+        ucApiLint("POST /api/v1/lint")
+    end
+
+    actorUser --> ucValidate
+    actorUser --> ucUploadFile
+    actorUser --> ucExamples
+    actorUser --> ucLogin
+
+    actorAdmin --> ucLogin
+    actorAdmin --> ucDashboard
+    actorAdmin --> ucAudit
+
+    actorAgent --> ucApiValidate
+    actorAgent --> ucApiDiagnostic
+    actorAgent --> ucApiFix
+    actorAgent --> ucApiFormat
+    actorAgent --> ucApiLint
+```
+
+### Diagrama de secuencia (validar una consulta)
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario
+    participant FE as Frontend (app.js)
+    participant RT as validate.routes
+    participant CT as validation.controller
+    participant SV as validation.service
+    participant LX as Lexer/Parser (SQL o Mongo)
+    participant DB as PostgreSQL (audit_logs)
+
+    U->>FE: Escribe consulta y presiona "Validar"
+    FE->>RT: POST /api/validate { query, type }
+    RT->>CT: validateQuery(req, res)
+    CT->>SV: validateQueryAuto(query, type)
+    SV->>LX: new SQLParser(query) / new MongoParser(query)
+    LX-->>SV: { valid, errors[], warnings[] }
+    SV-->>CT: resultado de validacion
+    opt Usuario autenticado
+        CT->>DB: INSERT INTO audit_logs (...)
+    end
+    CT-->>FE: 200 OK { valid, errors, suggestions }
+    FE-->>U: Muestra errores/sugerencias en el editor
+```
+
+### Diagrama de clases (motor de validacion)
+
+```mermaid
+classDiagram
+    class Token {
+        +type
+        +value
+        +line
+        +column
+    }
+
+    class Lexer {
+        +source
+        +tokens
+        +tokenize()
+    }
+
+    class SQLParser {
+        +tokens
+        +errors
+        +parse()
+    }
+
+    class RDPParser {
+        +tokens
+        +position
+        +parseStatement()
+    }
+
+    class MongoParser {
+        +source
+        +parse()
+    }
+
+    class StrictMongoParser {
+        +parse()
+        +validateOperators()
+    }
+
+    class Engines {
+        <<enumeration>>
+        ANSI
+        MYSQL
+        MARIADB
+        POSTGRESQL
+        SQLITE
+        SQLSERVER
+        ORACLE
+    }
+
+    class ValidationService {
+        +validateSQL(query)
+        +validateNoSQL(query)
+        +validateQueryAuto(query, type)
+        +detectCategory(query, type)
+    }
+
+    Lexer --> Token : produce
+    SQLParser --> Lexer : usa
+    SQLParser --> RDPParser : delega parseo
+    MongoParser <|-- StrictMongoParser
+    ValidationService --> SQLParser : instancia
+    ValidationService --> MongoParser : instancia
+    SQLParser --> Engines : detecta motor
+```
+
+### Diagrama de componentes
+
+```mermaid
+flowchart TB
+    subgraph Frontend["frontend/"]
+        FEweb["index.html / app.js / admin.html"]
+    end
+
+    subgraph WebApp["Web principal (src/)"]
+        Routes["routes/"]
+        Controllers["controllers/"]
+        Services["services/validation.service.js"]
+        Validator["services/validator/ (lexer, sql, nosql)"]
+        Middleware["middleware/ (auth, logger, errorHandler)"]
+    end
+
+    subgraph SkillApi["Skill/API publica (skill/service/)"]
+        SkillRoutes["routes/"]
+        SkillControllers["controllers/"]
+    end
+
+    subgraph CLI["CLI (packages/cli/)"]
+        CLIBin["sqlcheck"]
+    end
+
+    subgraph GHAction["GitHub Action (sql-nosql-validator-action/)"]
+        ActionIndex["index.js"]
+    end
+
+    subgraph DataInfra["Infraestructura"]
+        PG[("PostgreSQL")]
+        Docker["Docker / docker-compose"]
+        Terraform["Terraform (infra/aws, infra/azure)"]
+    end
+
+    FEweb --> Routes
+    Routes --> Controllers
+    Controllers --> Services
+    Services --> Validator
+    Controllers --> Middleware
+    Controllers --> PG
+
+    SkillRoutes --> SkillControllers
+    SkillControllers --> Validator
+
+    CLIBin --> SkillApi
+    ActionIndex --> Validator
+
+    WebApp --> Docker
+    SkillApi --> Docker
+    Docker --> Terraform
+```
+
+### Diagrama de despliegue
+
+```mermaid
+flowchart TB
+    subgraph Client["Cliente"]
+        Browser["Navegador / CLI / Agente IA"]
+    end
+
+    subgraph Railway["Railway (produccion actual)"]
+        RailwayWeb["Web principal\nprojectvalidador-production-3bcb"]
+        RailwaySkill["Skill/API\nwonderful-benevolence-production-ebaf"]
+        RailwayPG[("PostgreSQL")]
+    end
+
+    subgraph AWS["AWS (infra/aws, opcional)"]
+        ALB["Application Load Balancer"]
+        ECS["ECS Fargate Service"]
+        ECR["ECR Repository"]
+        CW["CloudWatch Logs"]
+    end
+
+    subgraph Azure["Azure (infra/azure, opcional)"]
+        ACA["Container App"]
+        ACR["Azure Container Registry"]
+        LAW["Log Analytics Workspace"]
+    end
+
+    Browser -->|HTTPS| RailwayWeb
+    Browser -->|HTTPS| RailwaySkill
+    RailwayWeb --> RailwayPG
+
+    Browser -->|HTTPS| ALB --> ECS
+    ECS --> ECR
+    ECS --> CW
+
+    Browser -->|HTTPS| ACA
+    ACA --> ACR
+    ACA --> LAW
+```
+
+### Arquitectura de software e infraestructura
+
+```mermaid
+flowchart TB
+    subgraph SW["Arquitectura de software (MVC)"]
+        direction TB
+        View["Vista: frontend/ (HTML/JS estatico)"]
+        Ctrl["Controlador: src/controllers/*"]
+        Model["Modelo/Servicio: src/services/*, validator/*"]
+        View --> Ctrl --> Model
+    end
+
+    subgraph AWSInfra["Infraestructura AWS (infra/aws)"]
+        direction TB
+        VPC["aws_vpc"] --> Subnet["aws_subnet public"]
+        Subnet --> SGalb["aws_security_group alb"]
+        SGalb --> LB["aws_lb"]
+        LB --> TG["aws_lb_target_group"]
+        TG --> ECSsvc["aws_ecs_service"]
+        ECSsvc --> ECStask["aws_ecs_task_definition"]
+        ECStask --> ECRrepo["aws_ecr_repository"]
+        ECSsvc --> Logs["aws_cloudwatch_log_group"]
+        ECSsvc --> SGtasks["aws_security_group ecs_tasks"]
+    end
+
+    subgraph AzureInfra["Infraestructura Azure (infra/azure)"]
+        direction TB
+        RG["azurerm_resource_group"] --> ACRreg["azurerm_container_registry"]
+        RG --> Env["azurerm_container_app_environment"]
+        Env --> CApp["azurerm_container_app"]
+        CApp --> Identity["azurerm_user_assigned_identity"]
+        Identity --> RoleAssign["azurerm_role_assignment acr_pull"]
+        Env --> LAWorkspace["azurerm_log_analytics_workspace"]
+    end
+
+    Model -.-> AWSInfra
+    Model -.-> AzureInfra
+```
+
 ## Clonar el proyecto
 
 ```bash
@@ -55,23 +325,6 @@ Modo desarrollo:
 
 ```bash
 npm run dev
-```
-
-## Ejecutar pruebas automatizadas
-
-El proyecto usa Jest y Supertest desde la raiz para pruebas unitarias del validador y pruebas de integracion de la Skill/API.
-
-```bash
-npm test
-npm run test:unit
-npm run test:api
-npm run test:coverage
-```
-
-El reporte HTML de cobertura se genera en:
-
-```text
-coverage/lcov-report/index.html
 ```
 
 Health checks locales:

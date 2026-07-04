@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "npm test"
+  },
+  "reporters": ["html", "json", "clear-text", "progress"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/index.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "mutate": [
+    "src/services/validator/lexer.js",
+    "src/services/validator/sql/*.js",
+    "src/services/validator/nosql/*.js"
+  ],
+  "ignorePatterns": ["reports", "public", "node_modules"],
+  "concurrency": 4,
+  "timeoutMS": 15000,
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": null
+  }
+}

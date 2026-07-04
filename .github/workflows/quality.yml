@@ -1,65 +1,228 @@
-name: Quality
+name: Quality Pipeline
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: quality-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  test:
-    name: Test and Coverage
+  static-analysis:
+    name: Analisis estatico (Semgrep + Snyk)
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+      security-events: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run tests
-        run: npm test
-
-      - name: Generate coverage
-        run: npm run test:coverage
-
-      - name: Build if available
-        run: npm run build --if-present
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/setup-python@v5
         with:
-          name: coverage-report
-          path: coverage/
-          if-no-files-found: error
+          python-version: "3.12"
 
-      - name: Setup Pages
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: actions/configure-pages@v5
+      - name: Instalar dependencias Node
+        run: npm ci
 
-      - name: Upload Pages artifact
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: actions/upload-pages-artifact@v3
+      - name: Instalar Semgrep
+        run: pip install semgrep
+
+      - name: Ejecutar Semgrep (SARIF)
+        run: |
+          semgrep scan \
+            --config p/javascript \
+            --config p/security-audit \
+            --config p/secrets \
+            --sarif --output semgrep.sarif .
+
+      - name: Publicar hallazgos de Semgrep en Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          path: coverage/lcov-report
+          sarif_file: semgrep.sarif
 
-      - name: Deploy coverage to GitHub Pages
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      - name: Generar reporte HTML de Semgrep
+        if: always()
+        run: node scripts/sarif-to-html.js semgrep.sarif public/security/semgrep/index.html "Semgrep - SQL/NoSQL Validator"
+
+      - name: Ejecutar Snyk
+        if: ${{ secrets.SNYK_TOKEN != '' }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+        run: |
+          npm install -g snyk
+          snyk test --json-file-output=snyk-results.json || true
+
+      - name: Generar reporte HTML de Snyk
+        if: always()
+        run: |
+          if [ ! -f snyk-results.json ]; then
+            echo '{"vulnerabilities":[],"ok":true,"summary":"Snyk no configurado (falta SNYK_TOKEN) o sin hallazgos."}' > snyk-results.json
+          fi
+          npx snyk-to-html -i snyk-results.json -o public/security/snyk/index.html
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: public/security
+
+  test:
+    name: Pruebas unitarias + cobertura (Jest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Pruebas + cobertura
+        run: npm run test:coverage | tee coverage-output.txt
+
+      - name: Anotar resumen de cobertura
+        if: always()
+        run: |
+          {
+            echo "## Cobertura de pruebas (Jest)"
+            echo '```'
+            tail -n 25 coverage-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ensamblar reporte de cobertura
+        if: always()
+        run: |
+          mkdir -p public/coverage
+          cp -r coverage/lcov-report/. public/coverage/ || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports
+          path: public/coverage
+
+  mutation:
+    name: Pruebas de mutacion (Stryker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Ejecutar Stryker
+        run: npm run test:mutation
+
+      - name: Anotar resumen de mutacion
+        if: always()
+        run: npm run test:mutation:summary
+
+      - name: Ensamblar reporte de mutacion
+        if: always()
+        run: |
+          mkdir -p public/mutation
+          cp -r reports/mutation/. public/mutation/ || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-report
+          path: public/mutation
+
+  bdd:
+    name: Pruebas BDD (Cucumber)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Ejecutar escenarios BDD
+        run: npm run test:bdd
+
+      - name: Generar reporte y resumen BDD
+        if: always()
+        run: npm run test:bdd:summary
+
+      - name: Ensamblar reporte BDD
+        if: always()
+        run: |
+          mkdir -p public/bdd
+          cp -r reports/bdd/html/. public/bdd/ || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bdd-report
+          path: public/bdd
+
+  publish-pages:
+    name: Publicar reportes en GH Pages
+    needs: [static-analysis, test, mutation, bdd]
+    if: always() && !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: security-reports
+          path: public/security
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-reports
+          path: public/coverage
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mutation-report
+          path: public/mutation
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: bdd-report
+          path: public/bdd
+
+      - name: Generar pagina de indice
+        run: cp scripts/pages-index-template.html public/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - id: deployment
         uses: actions/deploy-pages@v4
