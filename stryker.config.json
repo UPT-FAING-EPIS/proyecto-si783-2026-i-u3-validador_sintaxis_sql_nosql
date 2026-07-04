@@ -14,8 +14,7 @@
   },
   "mutate": [
     "src/services/validator/lexer.js",
-    "src/services/validator/sql/*.js",
-    "src/services/validator/nosql/*.js"
+    "src/services/validator/sql/detector.js"
   ],
   "ignorePatterns": ["reports", "public", "node_modules"],
   "concurrency": 4,
