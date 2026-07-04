@@ -45,6 +45,9 @@ jobs:
             --config p/javascript \
             --config p/security-audit \
             --config p/secrets \
+            --config p/owasp-top-ten \
+            --config p/jwt \
+            --config p/nodejsscan \
             --sarif --output semgrep.sarif .
 
       - name: Publicar hallazgos de Semgrep en Code Scanning
