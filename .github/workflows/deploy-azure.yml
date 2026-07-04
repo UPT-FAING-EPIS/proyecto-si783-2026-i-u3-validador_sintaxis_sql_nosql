@@ -25,6 +25,7 @@ jobs:
 
     env:
       IMAGE_NAME: sql-validator
+      IMAGE_TAG: ${{ inputs.image_tag }}
       TF_VAR_image_tag: ${{ inputs.image_tag }}
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -83,14 +84,18 @@ jobs:
 
       - name: Login to ACR
         if: ${{ inputs.apply == 'true' }}
-        run: az acr login --name "${{ steps.registry.outputs.acr_name }}"
+        env:
+          ACR_NAME: ${{ steps.registry.outputs.acr_name }}
+        run: az acr login --name "$ACR_NAME"
 
       - name: Build and push Docker image
         if: ${{ inputs.apply == 'true' }}
+        env:
+          ACR_LOGIN_SERVER: ${{ steps.registry.outputs.acr_login_server }}
         run: |
-          docker build -t "$IMAGE_NAME:${{ inputs.image_tag }}" .
-          docker tag "$IMAGE_NAME:${{ inputs.image_tag }}" "${{ steps.registry.outputs.acr_login_server }}/$IMAGE_NAME:${{ inputs.image_tag }}"
-          docker push "${{ steps.registry.outputs.acr_login_server }}/$IMAGE_NAME:${{ inputs.image_tag }}"
+          docker build -t "$IMAGE_NAME:$IMAGE_TAG" .
+          docker tag "$IMAGE_NAME:$IMAGE_TAG" "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
+          docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
 
       - name: Terraform apply full infrastructure
         if: ${{ inputs.apply == 'true' }}
@@ -107,8 +112,12 @@ jobs:
 
       - name: Update Container App
         if: ${{ inputs.apply == 'true' }}
+        env:
+          CONTAINER_APP_NAME: ${{ steps.app.outputs.container_app_name }}
+          RESOURCE_GROUP_NAME: ${{ steps.app.outputs.resource_group_name }}
+          ACR_LOGIN_SERVER: ${{ steps.registry.outputs.acr_login_server }}
         run: |
           az containerapp update \
-            --name "${{ steps.app.outputs.container_app_name }}" \
-            --resource-group "${{ steps.app.outputs.resource_group_name }}" \
-            --image "${{ steps.registry.outputs.acr_login_server }}/$IMAGE_NAME:${{ inputs.image_tag }}"
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --image "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"

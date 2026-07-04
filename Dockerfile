@@ -7,7 +7,12 @@ COPY package*.json ./
 RUN npm install --production
 
 # Copiar el resto del código
-COPY . .
+COPY --chown=node:node . .
+
+# Directorio de subida de archivos (multer) con permisos para el usuario no root
+RUN mkdir -p uploads && chown node:node uploads
+
+USER node
 
 # Exponer el puerto
 EXPOSE 3000

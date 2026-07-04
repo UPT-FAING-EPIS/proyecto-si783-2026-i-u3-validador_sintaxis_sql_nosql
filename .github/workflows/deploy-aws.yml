@@ -28,6 +28,7 @@ jobs:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
       IMAGE_NAME: sql-validator
+      IMAGE_TAG: ${{ inputs.image_tag }}
       TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
       TF_VAR_image_tag: ${{ inputs.image_tag }}
 
@@ -87,10 +88,12 @@ jobs:
 
       - name: Build and push Docker image
         if: ${{ inputs.apply == 'true' }}
+        env:
+          ECR_URL: ${{ steps.registry.outputs.ecr_repository_url }}
         run: |
-          docker build -t "$IMAGE_NAME:${{ inputs.image_tag }}" .
-          docker tag "$IMAGE_NAME:${{ inputs.image_tag }}" "${{ steps.registry.outputs.ecr_repository_url }}:${{ inputs.image_tag }}"
-          docker push "${{ steps.registry.outputs.ecr_repository_url }}:${{ inputs.image_tag }}"
+          docker build -t "$IMAGE_NAME:$IMAGE_TAG" .
+          docker tag "$IMAGE_NAME:$IMAGE_TAG" "$ECR_URL:$IMAGE_TAG"
+          docker push "$ECR_URL:$IMAGE_TAG"
 
       - name: Terraform apply full infrastructure
         if: ${{ inputs.apply == 'true' }}
@@ -107,9 +110,12 @@ jobs:
 
       - name: Force ECS redeploy
         if: ${{ inputs.apply == 'true' }}
+        env:
+          ECS_CLUSTER: ${{ steps.ecs.outputs.ecs_cluster_name }}
+          ECS_SERVICE: ${{ steps.ecs.outputs.ecs_service_name }}
         run: |
           aws ecs update-service \
-            --cluster "${{ steps.ecs.outputs.ecs_cluster_name }}" \
-            --service "${{ steps.ecs.outputs.ecs_service_name }}" \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
             --force-new-deployment \
             --region "$AWS_REGION"

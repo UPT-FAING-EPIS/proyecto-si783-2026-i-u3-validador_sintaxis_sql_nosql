@@ -8,9 +8,11 @@ ENV PORT=4000
 COPY package.json ./
 RUN npm install --omit=dev
 
-COPY src ./src
-COPY openapi.yaml ./openapi.yaml
-COPY .env.example ./.env.example
+COPY --chown=node:node src ./src
+COPY --chown=node:node openapi.yaml ./openapi.yaml
+COPY --chown=node:node .env.example ./.env.example
+
+USER node
 
 EXPOSE 4000
 
