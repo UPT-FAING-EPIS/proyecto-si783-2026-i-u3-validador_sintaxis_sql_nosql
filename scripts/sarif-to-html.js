@@ -26,6 +26,9 @@ function loadFindings(sarif) {
       rulesById[rule.id] = rule;
     }
     for (const result of run.results || []) {
+      // Semgrep conserva en el SARIF los hallazgos silenciados con "// nosemgrep"
+      // pero los marca con "suppressions" para que las herramientas los oculten.
+      if (result.suppressions && result.suppressions.length > 0) continue;
       const rule = rulesById[result.ruleId] || {};
       const location = result.locations?.[0]?.physicalLocation;
       findings.push({
