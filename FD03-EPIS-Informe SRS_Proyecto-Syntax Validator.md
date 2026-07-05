@@ -36,7 +36,7 @@ Tacna – Perú
 | CONTROL DE VERSIONES |  |  |  |  |  |
 | --- | --- | --- | --- | --- | --- |
 | Versión | Hecha por | Revisada por | Aprobada por | Fecha | Motivo |
-| 1.0 | G.A. / F.P. |  |  | 27/04/2026 | Versión Original |
+| 1.0 | G.A. / C.S. |  |  | 27/04/2026 | Versión Original |
 
 ÍNDICE GENERAL
 
